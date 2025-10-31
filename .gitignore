@@ -1,0 +1,180 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.vuepress/dist/
+.output/
+out/
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts.map
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.eslintcache
+.stylelintcache
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log.*
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+test-results/
+playwright-report/
+test-results.xml
+
+# Vite
+.vite/
+.vite-cache/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.cache/
+.parcel-cache/
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sql
+backup_*.sql
+prisma/dev.db*
+prisma/migrations/
+
+# Package managers
+package-lock.json
+yarn.lock
+!pnpm-lock.yaml
+
+# Frontend specific
+# React
+.eslintcache
+
+# Next.js
+.next/
+
+# Nuxt.js
+.nuxt/
+
+# Vue
+.vuepress/dist/
+
+# Svelte
+.svelte-kit/
+
+# Angular
+.angular/
+
+# Backend specific
+# Node.js
+node_modules/
+.npm
+.eslintcache
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Deployment
+.vercel/
+.netlify/
+.serverless/
+.fusebox/
+
+# Misc
+*.tgz
+*.tar.gz
+.npm
+.eslintcache
+.stylelintcache
+
+# Local development
+.local/
+.localrc
+
+# Storybook
+storybook-static/
+
+# Turbo
+.turbo/
+
+# Lerna
+.lerna/
+
+# Documentation
+docs/_build/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Security
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+certs/
+ssl/
+
+# Generated files
+generated/
+auto-generated/
+.docusaurus

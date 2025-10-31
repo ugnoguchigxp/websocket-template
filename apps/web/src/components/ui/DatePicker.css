@@ -1,0 +1,595 @@
+/**
+ * DatePicker CSS - Touch Panel Optimized
+ * Designed for 48-64px touch targets, no scrollbars, weekend red styling
+ */
+
+/* =========================
+   Wrapper & Input Styling
+   ========================= */
+
+.datepicker-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.datepicker-input-wrapper {
+  width: 100%;
+}
+
+.datepicker-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  background-color: white;
+  min-height: 48px;
+}
+
+.datepicker-input:hover {
+  border-color: #9ca3af;
+}
+
+.datepicker-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.datepicker-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* =========================
+   Custom Header
+   ========================= */
+
+.custom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 64px;
+}
+
+.month-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.month-nav-button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.month-nav-button:active {
+  background-color: #e5e7eb;
+  transform: scale(0.95);
+}
+
+.header-label-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 56px;
+}
+
+.header-year,
+.header-month {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header-year:hover,
+.header-month:hover {
+  background-color: #f3f4f6;
+}
+
+.header-year:active,
+.header-month:active {
+  background-color: #e5e7eb;
+}
+
+/* =========================
+   Year Picker Dropdown
+   ========================= */
+
+.year-month-picker {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  margin-top: 0.5rem;
+  max-width: 90vw;
+  width: 400px;
+}
+
+.year-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6;
+}
+
+/* Webkit scrollbar for year list only (internal scrolling is acceptable) */
+.year-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.year-list::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.year-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.year-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.year-list button,
+.month-list button {
+  padding: 0.75rem;
+  min-height: 56px;
+  font-size: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  background-color: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.year-list button:hover,
+.month-list button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.year-list button:active,
+.month-list button:active {
+  background-color: #e5e7eb;
+  transform: scale(0.95);
+}
+
+.year-list button.selected,
+.month-list button.selected {
+  background-color: #6366f1;
+  color: white;
+  border-color: #6366f1;
+  font-weight: 600;
+}
+
+.year-list button.selected:hover,
+.month-list button.selected:hover {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+}
+
+/* Month list layout */
+.month-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* =========================
+   Touch-Optimized Calendar
+   ========================= */
+
+.touch-optimized-calendar {
+  font-family: inherit;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: white;
+  padding: 0;
+  overflow: visible !important;
+}
+
+/* Remove react-datepicker default header (we use custom) */
+.touch-optimized-calendar .react-datepicker__header {
+  background-color: transparent;
+  border-bottom: none;
+  padding: 0;
+}
+
+.touch-optimized-calendar .react-datepicker__current-month,
+.touch-optimized-calendar .react-datepicker__navigation {
+  display: none;
+}
+
+/* Month Container */
+.touch-optimized-calendar .react-datepicker__month-container {
+  width: 100%;
+}
+
+.touch-optimized-calendar .react-datepicker__month {
+  margin: 0;
+  padding: 1rem;
+}
+
+/* Day Names Header */
+.touch-optimized-calendar .react-datepicker__day-names {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 0.5rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+}
+
+.touch-optimized-calendar .react-datepicker__day-name {
+  width: 64px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+/* Weekend Headers - Red Styling (土曜日 Saturday, 日曜日 Sunday) */
+.touch-optimized-calendar .react-datepicker__day-name:nth-child(1),
+.touch-optimized-calendar .react-datepicker__day-name:nth-child(7) {
+  color: #dc2626 !important;
+}
+
+/* Week Row */
+.touch-optimized-calendar .react-datepicker__week {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 0.25rem;
+}
+
+/* Day Cells - Large Touch Targets */
+.touch-optimized-calendar .react-datepicker__day {
+  width: 64px;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  color: #1f2937;
+}
+
+.touch-optimized-calendar .react-datepicker__day:hover {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+/* Today */
+.touch-optimized-calendar .react-datepicker__day--today {
+  background-color: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.touch-optimized-calendar .react-datepicker__day--today:hover {
+  background-color: #bfdbfe;
+}
+
+/* Selected Day */
+.touch-optimized-calendar .react-datepicker__day--selected,
+.touch-optimized-calendar .react-datepicker__day--keyboard-selected {
+  background-color: #6366f1 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.touch-optimized-calendar .react-datepicker__day--selected:hover,
+.touch-optimized-calendar .react-datepicker__day--keyboard-selected:hover {
+  background-color: #4f46e5 !important;
+}
+
+/* =========================
+   Range Selection Styling
+   ========================= */
+
+/* In-range dates - light blue background */
+.touch-optimized-calendar .react-datepicker__day--in-range {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  font-weight: 500;
+}
+
+.touch-optimized-calendar .react-datepicker__day--in-range:hover {
+  background-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+/* Range start date - indigo background */
+.touch-optimized-calendar .react-datepicker__day--range-start {
+  background-color: #6366f1 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.touch-optimized-calendar .react-datepicker__day--range-start:hover {
+  background-color: #4f46e5 !important;
+}
+
+/* Range end date - indigo background */
+.touch-optimized-calendar .react-datepicker__day--range-end {
+  background-color: #6366f1 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.touch-optimized-calendar .react-datepicker__day--range-end:hover {
+  background-color: #4f46e5 !important;
+}
+
+/* Selecting range (while user is selecting) */
+.touch-optimized-calendar .react-datepicker__day--selecting-range-start {
+  background-color: #6366f1 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.touch-optimized-calendar .react-datepicker__day--selecting-range {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+}
+
+.touch-optimized-calendar .react-datepicker__day--selecting-range-end {
+  background-color: #6366f1 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+/* Weekend Days - Keep default color for dates, only headers are red */
+/* Selected weekend days should still show white text */
+.touch-optimized-calendar .react-datepicker__day--selected:nth-child(1),
+.touch-optimized-calendar .react-datepicker__day--selected:nth-child(7),
+.touch-optimized-calendar .react-datepicker__day--keyboard-selected:nth-child(1),
+.touch-optimized-calendar .react-datepicker__day--keyboard-selected:nth-child(7) {
+  color: white !important;
+}
+
+/* Disabled/Outside Month Days */
+.touch-optimized-calendar .react-datepicker__day--disabled,
+.touch-optimized-calendar .react-datepicker__day--outside-month {
+  color: #d1d5db;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* =========================
+   Portal/Modal Styling (Touch Panel Optimized)
+   ========================= */
+
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker-popper[data-placement^="bottom"] .react-datepicker__triangle {
+  display: none;
+}
+
+/* Portal Container - Full screen overlay with centered modal */
+.react-datepicker__portal {
+  background-color: rgba(0, 0, 0, 0.6);
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+/* Calendar Modal Container */
+.react-datepicker__portal .react-datepicker {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: none;
+  max-height: 90vh;
+  overflow: hidden;
+  width: auto;
+}
+
+/* Ensure calendar fits within modal */
+.react-datepicker__portal .touch-optimized-calendar {
+  border: none;
+  box-shadow: none;
+  border-radius: 1rem;
+}
+
+/* Round the custom header top corners */
+.react-datepicker__portal .custom-header {
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+}
+
+/* =========================
+   Multiple Months Display
+   ========================= */
+
+/* Container for multiple months - horizontal layout */
+.react-datepicker {
+  display: inline-flex !important;
+}
+
+.react-datepicker--multiple-months {
+  display: inline-flex !important;
+  flex-direction: row;
+  gap: 0.75rem;
+}
+
+/* Multiple months container - compact size */
+.react-datepicker--multiple-months .react-datepicker__month-container {
+  display: inline-block !important;
+  vertical-align: top;
+  flex: 1;
+  float: none !important;
+}
+
+/* Reduce day button size for multiple months */
+.react-datepicker--multiple-months .react-datepicker__day {
+  width: 36px;
+  height: 36px;
+  font-size: 0.875rem;
+}
+
+.react-datepicker--multiple-months .react-datepicker__day-name {
+  width: 36px;
+  height: 32px;
+  font-size: 0.75rem;
+}
+
+/* Reduce header size for multiple months */
+.react-datepicker--multiple-months .custom-header {
+  padding: 0.5rem;
+  min-height: 48px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.react-datepicker--multiple-months .month-nav-button {
+  width: 40px;
+  height: 40px;
+  font-size: 1.125rem;
+}
+
+.react-datepicker--multiple-months .header-label-container {
+  min-height: 40px;
+}
+
+.react-datepicker--multiple-months .header-year,
+.react-datepicker--multiple-months .header-month {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Reduce month padding for multiple months */
+.react-datepicker--multiple-months .react-datepicker__month {
+  padding: 0.5rem;
+}
+
+/* Reduce spacing in day names header */
+.react-datepicker--multiple-months .react-datepicker__day-names {
+  padding: 0 0.5rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Add border between months */
+.react-datepicker--multiple-months .react-datepicker__month-container:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+  padding-right: 0.75rem;
+}
+
+/* Modal adjustment for multiple months */
+.react-datepicker__portal .react-datepicker--multiple-months {
+  width: auto;
+  max-width: none;
+}
+
+/* Force horizontal layout for multiple months */
+.react-datepicker--multiple-months .react-datepicker__month-wrapper {
+  display: inline-block;
+}
+
+/* Remove ALL scrollbars from calendar container */
+.touch-optimized-calendar,
+.touch-optimized-calendar *:not(.year-list) {
+  overflow: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.touch-optimized-calendar *:not(.year-list)::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* =========================
+   Responsive Adjustments
+   ========================= */
+
+@media (max-width: 640px) {
+  .touch-optimized-calendar .react-datepicker__day,
+  .touch-optimized-calendar .react-datepicker__day-name {
+    width: 48px;
+    height: 48px;
+    font-size: 1rem;
+  }
+
+  .month-nav-button {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
+
+  .header-label {
+    font-size: 1.125rem;
+    min-height: 48px;
+  }
+
+  .year-month-picker {
+    width: 90vw;
+  }
+
+  .year-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

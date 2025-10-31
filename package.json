@@ -1,0 +1,24 @@
+{
+  "name": "websocketFramework",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @wsfw/api dev",
+    "dev:web": "pnpm --filter @wsfw/web dev",
+    "dev": "run-p dev:api dev:web",
+    "build": "pnpm --filter @wsfw/api build && pnpm --filter @wsfw/web build",
+    "start": "pnpm --filter @wsfw/api start",
+    "db:generate": "pnpm --filter @wsfw/api db:generate",
+    "db:push": "pnpm --filter @wsfw/api db:push",
+    "lint:api": "pnpm --filter @wsfw/api lint",
+    "lint:fix:api": "pnpm --filter @wsfw/api lint:fix",
+    "format:api": "pnpm --filter @wsfw/api format",
+    "format:write:api": "pnpm --filter @wsfw/api format:write",
+    "check:api": "pnpm --filter @wsfw/api check",
+    "check:fix:api": "pnpm --filter @wsfw/api check:fix"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  },
+  "packageManager": "pnpm@9.14.2+sha512.6e2baf77d06b9362294152c851c4f278ede37ab1eba3a55fda317a4a17b209f4dbb973fb250a77abc463a341fcb1f17f17cfa24091c4eb319cda0d9b84278387"
+}

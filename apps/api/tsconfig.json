@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@logger": ["src/modules/logger"],
+      "@modules/*": ["src/modules/*"],
+      "@middleware/*": ["src/middleware/*"],
+      "@routes/*": ["src/routes/*"],
+      "@routers/*": ["src/routers/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/**/*.mjs",
+    "src/**/*.mts",
+    "src/**/index-*.ts",
+    "src/**/simple-*.ts",
+    "src/start.ts"
+  ]
+}

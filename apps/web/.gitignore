@@ -1,0 +1,133 @@
+# Frontend specific gitignore
+
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.vuepress/dist/
+.output/
+.out/
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts.map
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.eslintcache
+.stylelintcache
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log.*
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+test-results/
+playwright-report/
+test-results.xml
+
+# Vite
+.vite/
+.vite-cache/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.cache/
+.parcel-cache/
+
+# Frontend framework specific
+# React
+.eslintcache
+
+# Next.js
+.next/
+
+# Nuxt.js
+.nuxt/
+
+# Vue
+.vuepress/dist/
+
+# Svelte
+.svelte-kit/
+
+# Angular
+.angular/
+
+# Storybook
+storybook-static/
+
+# Package managers
+package-lock.json
+yarn.lock
+!pnpm-lock.yaml
+
+# Deployment
+.vercel/
+.netlify/
+.serverless/
+.fusebox/
+
+# Local development
+.local/
+.localrc
+
+# Turbo
+.turbo/
+
+# Documentation
+docs/_build/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Generated files
+generated/
+auto-generated/

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["src/*"],
+      "@logger": ["src/modules/logger"],
+      "@components/*": ["src/components/*"],
+      "@pages/*": ["src/pages/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@lib/*": ["src/lib/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}
