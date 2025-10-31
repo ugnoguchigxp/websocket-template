@@ -26,7 +26,7 @@ export class JwtServiceImpl implements IJwtService {
 			}) as any;
 
 			return { userId: decoded.userId };
-		} catch (error) {
+		} catch (_error) {
 			return null;
 		}
 	}

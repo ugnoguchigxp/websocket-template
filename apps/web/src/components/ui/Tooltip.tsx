@@ -1,42 +1,31 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
-
-interface ITooltipProps {
-	text: string;
-	children: React.ReactNode;
-	position?: 'top' | 'bottom';
-}
-
-const Tooltip: React.FC<ITooltipProps> = ({ text, children, position }) => {
-	const [visible, setVisible] = useState(false);
-	const [calculatedPosition, setCalculatedPosition] = useState<'top' | 'bottom'>('top');
-	const wrapperRef = useRef<HTMLSpanElement>(null);
-	const tooltipRef = useRef<HTMLSpanElement>(null);
-	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+import React, { useState, useRef, useLayoutEffect } from "react"
+const Tooltip = ({ text, children, position }) => {
+	const [visible, setVisible] = useState(false)
+	const [calculatedPosition, setCalculatedPosition] = useState("top")
+	const wrapperRef = useRef(null)
+	const tooltipRef = useRef(null)
+	const timeoutRef = useRef(null)
 	const showTooltip = () => {
-		timeoutRef.current = setTimeout(() => setVisible(true), 300);
-	};
+		timeoutRef.current = setTimeout(() => setVisible(true), 300)
+	}
 	const hideTooltip = () => {
-		if (timeoutRef.current) clearTimeout(timeoutRef.current);
-		setVisible(false);
-	};
-
+		if (timeoutRef.current) clearTimeout(timeoutRef.current)
+		setVisible(false)
+	}
 	useLayoutEffect(() => {
 		if (visible && !position && wrapperRef.current && tooltipRef.current) {
-			const wrapperRect = wrapperRef.current.getBoundingClientRect();
-			const tooltipRect = tooltipRef.current.getBoundingClientRect();
-			const spaceAbove = wrapperRect.top;
-			const spaceBelow = window.innerHeight - wrapperRect.bottom;
+			const wrapperRect = wrapperRef.current.getBoundingClientRect()
+			const tooltipRect = tooltipRef.current.getBoundingClientRect()
+			const spaceAbove = wrapperRect.top
+			const spaceBelow = window.innerHeight - wrapperRect.bottom
 			if (spaceAbove < tooltipRect.height + 8 && spaceBelow > spaceAbove) {
-				setCalculatedPosition('bottom');
+				setCalculatedPosition("bottom")
 			} else {
-				setCalculatedPosition('top');
+				setCalculatedPosition("top")
 			}
 		}
-	}, [visible, position]);
-
-	const tooltipPosition = position || calculatedPosition;
-
+	}, [visible, position])
+	const tooltipPosition = position || calculatedPosition
 	return (
 		<span
 			className="relative inline-block"
@@ -44,24 +33,19 @@ const Tooltip: React.FC<ITooltipProps> = ({ text, children, position }) => {
 			onMouseLeave={hideTooltip}
 			onFocus={showTooltip}
 			onBlur={hideTooltip}
-			tabIndex={0}
 			ref={wrapperRef}
 		>
 			{children}
 			{visible && (
 				<span
 					ref={tooltipRef}
-					className={`absolute left-1/2 -translate-x-1/2 z-50 shadow-md whitespace-nowrap pointer-events-none bg-black text-white text-xs rounded py-1 px-2 ${
-						tooltipPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
-					}`}
+					className={`absolute left-1/2 -translate-x-1/2 z-50 shadow-md whitespace-nowrap pointer-events-none bg-black text-white text-xs rounded py-1 px-2 ${tooltipPosition === "top" ? "bottom-full mb-2" : "top-full mt-2"}`}
 				>
 					{text}
 				</span>
 			)}
 		</span>
-	);
-};
-
-export { Tooltip };
-
-export default Tooltip;
+	)
+}
+export { Tooltip }
+export default Tooltip

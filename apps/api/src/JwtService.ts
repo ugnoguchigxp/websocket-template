@@ -1,6 +1,6 @@
-import { logger } from "./modules/logger/core/logger.js";
 import jwt from "jsonwebtoken";
 import { inject, injectable } from "tsyringe";
+import { logger } from "./modules/logger/core/logger.js";
 
 /**
  * JWT token service for signing and verifying tokens

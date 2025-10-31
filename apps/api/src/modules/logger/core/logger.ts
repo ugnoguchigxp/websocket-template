@@ -42,7 +42,7 @@ const safeStringify = (obj: unknown): string => {
 	try {
 		return JSON.stringify(
 			obj,
-			(key, value) => {
+			(_key, value) => {
 				if (typeof value === "bigint") {
 					return value.toString();
 				}
@@ -57,7 +57,7 @@ const safeStringify = (obj: unknown): string => {
 			},
 			2
 		);
-	} catch (error) {
+	} catch (_error) {
 		return String(obj);
 	}
 };

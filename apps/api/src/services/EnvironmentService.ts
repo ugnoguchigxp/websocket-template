@@ -1,8 +1,8 @@
 import path from "path";
-import { logger } from "../modules/logger/core/logger.js";
-import { inject, injectable } from "tsyringe";
 import { config } from "dotenv";
+import { inject, injectable } from "tsyringe";
 import type { IEnvironmentService } from "../interfaces/IAppService.js";
+import { logger } from "../modules/logger/core/logger.js";
 
 @injectable()
 export class EnvironmentService implements IEnvironmentService {

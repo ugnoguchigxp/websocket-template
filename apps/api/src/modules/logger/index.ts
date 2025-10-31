@@ -3,8 +3,8 @@
  * @logger エイリアスで使用可能
  */
 
-import { logger } from "./core/logger";
-import type { IContextLogger } from "./types";
+import { logger } from "./core/logger.js";
+import type { IContextLogger } from "./types/index.js";
 
 /**
  * コンテキスト付きロガー作成
@@ -26,4 +26,4 @@ export const createContextLogger = (context: string): IContextLogger => ({
 export { logger };
 
 // 型定義のエクスポート
-export * from "./types";
+export * from "./types/index.js";

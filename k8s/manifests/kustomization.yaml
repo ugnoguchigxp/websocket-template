@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: wsfw
+
+resources:
+- namespace.yaml
+- configmap.yaml
+# - secrets.yaml  # Uncomment after creating from secrets.yaml.template
+- postgres-statefulset.yaml  # Comment out if using Azure Database for PostgreSQL
+- api-deployment.yaml
+- api-service.yaml
+- web-deployment.yaml
+- web-service.yaml
+- ingress.yaml  # Use ingress-agic.yaml instead if using Application Gateway Ingress Controller
+
+# Optional: Advanced Features (Uncomment to enable)
+# - hpa.yaml  # Horizontal Pod Autoscaler for auto-scaling
+# - network-policy.yaml  # Network policies for Pod-to-Pod communication restrictions
+# - pod-disruption-budget.yaml  # PodDisruptionBudget for high availability
+# - resource-quota.yaml  # ResourceQuota for namespace-level resource limits
+# - limit-range.yaml  # LimitRange for default resource requests/limits
+
+# Images to update (for CI/CD)
+images:
+- name: <YOUR_CONTAINER_REGISTRY>/wsfw-api
+  newTag: latest
+- name: <YOUR_CONTAINER_REGISTRY>/wsfw-web
+  newTag: latest
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/name: wsfw
+  app.kubernetes.io/managed-by: kustomize
+  environment: production

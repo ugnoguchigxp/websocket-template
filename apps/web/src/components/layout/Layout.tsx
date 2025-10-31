@@ -1,35 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { FaBars, FaChevronRight } from 'react-icons/fa';
-import { FiUser } from 'react-icons/fi';
-import { Link, Outlet } from 'react-router-dom';
-
-import { menuData } from '@/constants/menu';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { useAuth } from '@/contexts/AuthContext';
-import { NotificationPanel } from '../notifications/NotificationPanel';
-import Drawer from '../ui/Drawer';
-import LanguageSelector from '../ui/LanguageSelector';
-import Tooltip from '../ui/Tooltip';
-import { TreeMenu } from '../TreeMenu';
-import { Button } from '../ui/Button';
-
-const Layout: React.FC = () => {
-	const { t } = useTranslation();
-	const { logout } = useAuth();
-	const [dropdownOpen, setDropdownOpen] = useState(false);
-	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-	const isMobile = useIsMobile();
-
+import { menuData } from "@/constants/menu"
+import { useAuth } from "@/contexts/AuthContext"
+import { useIsMobile } from "@/hooks/useIsMobile"
+import React, { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { FaBars, FaChevronRight } from "react-icons/fa"
+import { FiUser } from "react-icons/fi"
+import { Link, Outlet } from "react-router-dom"
+import { TreeMenu } from "../TreeMenu"
+import { NotificationPanel } from "../notifications/NotificationPanel"
+import { Button } from "../ui/Button"
+import Drawer from "../ui/Drawer"
+import LanguageSelector from "../ui/LanguageSelector"
+import Tooltip from "../ui/Tooltip"
+const Layout = () => {
+	const { t } = useTranslation()
+	const { logout } = useAuth()
+	const [dropdownOpen, setDropdownOpen] = useState(false)
+	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+	const isMobile = useIsMobile()
 	const [isTreeMenuOpen, setIsTreeMenuOpen] = useState(() => {
-		const saved = localStorage.getItem('treeMenuOpen');
-		return saved !== null ? JSON.parse(saved) : true;
-	});
-
+		const saved = localStorage.getItem("treeMenuOpen")
+		return saved !== null ? JSON.parse(saved) : true
+	})
 	useEffect(() => {
-		localStorage.setItem('treeMenuOpen', JSON.stringify(isTreeMenuOpen));
-	}, [isTreeMenuOpen]);
-
+		localStorage.setItem("treeMenuOpen", JSON.stringify(isTreeMenuOpen))
+	}, [isTreeMenuOpen])
 	return (
 		<div className="overflow-hidden">
 			{!isMobile && !isTreeMenuOpen && (
@@ -49,15 +44,15 @@ const Layout: React.FC = () => {
 					<div className="flex justify-between items-center px-4 py-3">
 						<div className="flex items-center">
 							<Link to="/" className="text-xl font-bold text-gray-900 flex items-center">
-								{t('websocketFramework', 'WebSocket Framework')}
+								{t("websocketFramework", "WebSocket Framework")}
 							</Link>
 						</div>
 						<div className="flex items-center space-x-4">
 							<LanguageSelector className="mr-4" id="language-selector" />
 							<div className="relative">
-								<Tooltip text={t('click_for_details', 'クリックで詳細表示')}>
+								<Tooltip text={t("click_for_details", "クリックで詳細表示")}>
 									<button
-										onClick={() => setDropdownOpen((open) => !open)}
+										onClick={() => setDropdownOpen(open => !open)}
 										className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 focus:outline-none relative"
 										aria-label="User menu"
 										type="button"
@@ -72,7 +67,7 @@ const Layout: React.FC = () => {
 												<FiUser className="text-3xl text-gray-700" />
 											</div>
 											<span className="mt-2 text-gray-700 text-sm font-medium">
-												{t('user', 'ユーザー')}
+												{t("user", "ユーザー")}
 											</span>
 										</div>
 
@@ -81,12 +76,8 @@ const Layout: React.FC = () => {
 										</div>
 
 										<div className="pt-4 border-t border-gray-200">
-											<Button
-												variant="destructive"
-												className="w-full"
-												onClick={logout}
-											>
-												{t('logout', 'ログアウト')}
+											<Button variant="destructive" className="w-full" onClick={logout}>
+												{t("logout", "ログアウト")}
 											</Button>
 										</div>
 									</div>
@@ -96,7 +87,7 @@ const Layout: React.FC = () => {
 					</div>
 				</div>
 				<div className="md:hidden flex justify-between items-center px-4 py-2 border-t bg-white">
-					<Tooltip text={t('menu', 'メニュー')}>
+					<Tooltip text={t("menu", "メニュー")}>
 						<button
 							onClick={() => setIsMobileMenuOpen(true)}
 							className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 focus:outline-none"
@@ -106,29 +97,33 @@ const Layout: React.FC = () => {
 						</button>
 					</Tooltip>
 				</div>
-				<Drawer isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} position="left">
+				<Drawer
+					isOpen={isMobileMenuOpen}
+					onClose={() => setIsMobileMenuOpen(false)}
+					position="left"
+				>
 					<TreeMenu menuData={menuData} onSelect={() => setIsMobileMenuOpen(false)} />
 				</Drawer>
 			</nav>
 			<div className="flex w-full">
-				{!isMobile && (
+				{!isMobile && isTreeMenuOpen && (
 					<div
 						className="relative h-full bg-white transition-all duration-300 ease-in-out flex-shrink-0 overflow-hidden"
 						style={{
-							width: isTreeMenuOpen ? '16.6667%' : '0px',
-							minWidth: isTreeMenuOpen ? '12rem' : '0px',
-							maxWidth: isTreeMenuOpen ? '400px' : '0px',
+							width: "16.6667%",
+							minWidth: "12rem",
+							maxWidth: "400px",
 							transition:
-								'width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1)',
-							pointerEvents: isTreeMenuOpen ? 'auto' : 'none',
+								"width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1)",
+							pointerEvents: isTreeMenuOpen ? "auto" : "none",
 						}}
 						aria-hidden={!isTreeMenuOpen}
 					>
 						<div
 							className="w-full h-full transition-transform duration-300 ease-in-out"
 							style={{
-								transform: isTreeMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
-								transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+								transform: isTreeMenuOpen ? "translateX(0)" : "translateX(-100%)",
+								transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
 							}}
 						>
 							<TreeMenu
@@ -140,12 +135,11 @@ const Layout: React.FC = () => {
 						</div>
 					</div>
 				)}
-				<main className={`p-2 transition-all duration-300 flex-1 ${isMobile ? 'w-full' : ''}`}>
+				<main className={`p-2 transition-all duration-300 flex-1 ${isMobile ? "w-full" : ""}`}>
 					<Outlet />
 				</main>
 			</div>
 		</div>
-	);
-};
-
-export default Layout;
+	)
+}
+export default Layout

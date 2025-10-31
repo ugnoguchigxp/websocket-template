@@ -1,0 +1,44 @@
+# LimitRange
+# Sets default resource requests/limits for pods and containers
+# Prevents resource exhaustion by individual pods
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: wsfw-limit-range
+  namespace: wsfw
+spec:
+  limits:
+  # Container-level limits
+  - type: Container
+    max:
+      cpu: "4"           # Maximum CPU per container
+      memory: "4Gi"      # Maximum memory per container
+    min:
+      cpu: "50m"         # Minimum CPU per container
+      memory: "64Mi"     # Minimum memory per container
+    default:
+      cpu: "500m"        # Default CPU limit if not specified
+      memory: "512Mi"    # Default memory limit if not specified
+    defaultRequest:
+      cpu: "250m"        # Default CPU request if not specified
+      memory: "256Mi"    # Default memory request if not specified
+    maxLimitRequestRatio:
+      cpu: "10"          # Max ratio between limit and request
+      memory: "4"        # Max ratio between limit and request
+
+  # Pod-level limits
+  - type: Pod
+    max:
+      cpu: "8"           # Maximum total CPU per pod
+      memory: "8Gi"      # Maximum total memory per pod
+    min:
+      cpu: "50m"         # Minimum total CPU per pod
+      memory: "64Mi"     # Minimum total memory per pod
+
+  # PersistentVolumeClaim limits
+  - type: PersistentVolumeClaim
+    max:
+      storage: "50Gi"    # Maximum storage per PVC
+    min:
+      storage: "1Gi"     # Minimum storage per PVC

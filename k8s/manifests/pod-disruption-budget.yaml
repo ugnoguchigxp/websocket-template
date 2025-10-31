@@ -1,0 +1,44 @@
+# Pod Disruption Budgets (PDB)
+# Ensures high availability during voluntary disruptions (node maintenance, upgrades, etc.)
+
+---
+# API PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-pdb
+  namespace: wsfw
+spec:
+  minAvailable: 1  # At least 1 API pod must be available
+  selector:
+    matchLabels:
+      app: api
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+---
+# Web PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-pdb
+  namespace: wsfw
+spec:
+  minAvailable: 1  # At least 1 Web pod must be available
+  selector:
+    matchLabels:
+      app: web
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+---
+# PostgreSQL PodDisruptionBudget (if using StatefulSet)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: wsfw
+spec:
+  maxUnavailable: 0  # Do not allow PostgreSQL to be disrupted
+  selector:
+    matchLabels:
+      app: postgres
+  unhealthyPodEvictionPolicy: AlwaysAllow

@@ -1,116 +1,102 @@
+import { createContextLogger } from "@logger"
 /**
  * NumberInput Component
  * 数値入力用のキーパッド付きInput
  */
-
-import React, { useState } from 'react';
-import { Input } from './Input';
-import { KeypadModal } from './KeypadModal';
-import { createContextLogger } from '@logger';
-
-const log = createContextLogger('NumberInput');
+import React, { useState } from "react"
+import { Input } from "./Input"
+import { KeypadModal } from "./KeypadModal"
 
 interface NumberInputProps {
-	value?: number | null;
-	onChange?: (value: number | null) => void;
-	label?: string;
-	placeholder?: string;
-	min?: number;
-	max?: number;
-	disabled?: boolean;
-	className?: string;
-	allowDecimal?: boolean;
+	value?: number
+	onChange?: (value: number) => void
+	label?: string
+	placeholder?: string
+	min?: number
+	max?: number
+	disabled?: boolean
+	className?: string
+	allowDecimal?: boolean
 }
 
-export const NumberInput: React.FC<NumberInputProps> = ({
+const log = createContextLogger("NumberInput")
+
+export const NumberInput = ({
 	value,
 	onChange,
-	label = '数値を入力',
-	placeholder = 'タップして入力',
+	label = "数値を入力",
+	placeholder = "タップして入力",
 	min,
 	max,
 	disabled = false,
-	className = '',
+	className = "",
 	allowDecimal = false,
-}) => {
-	const [modalOpen, setModalOpen] = useState(false);
-	const [inputValue, setInputValue] = useState('');
-	const [errorMessage, setErrorMessage] = useState('');
-
+}: NumberInputProps) => {
+	const [modalOpen, setModalOpen] = useState(false)
+	const [inputValue, setInputValue] = useState("")
+	const [errorMessage, setErrorMessage] = useState("")
 	const handleOpen = () => {
-		if (disabled) return;
-		setInputValue(value?.toString() || '');
-		setErrorMessage('');
-		setModalOpen(true);
-		log.debug('Number input modal opened', { currentValue: value });
-	};
-
+		if (disabled) return
+		setInputValue(value?.toString() || "")
+		setErrorMessage("")
+		setModalOpen(true)
+		log.debug("Number input modal opened", { currentValue: value })
+	}
 	const handleNumberClick = (digit: string) => {
-		setInputValue((prev) => prev + digit);
-		setErrorMessage('');
-	};
-
+		setInputValue(prev => prev + digit)
+		setErrorMessage("")
+	}
 	const handleBackspace = () => {
-		setInputValue((prev) => prev.slice(0, -1));
-		setErrorMessage('');
-	};
-
+		setInputValue(prev => prev.slice(0, -1))
+		setErrorMessage("")
+	}
 	const handleClear = () => {
-		setInputValue('');
-		setErrorMessage('');
-	};
-
+		setInputValue("")
+		setErrorMessage("")
+	}
 	const handleDecimalClick = () => {
-		if (!allowDecimal) return;
-		if (inputValue.includes('.')) return;
-		setInputValue((prev) => (prev || '0') + '.');
-		setErrorMessage('');
-	};
-
+		if (!allowDecimal) return
+		if (inputValue.includes(".")) return
+		setInputValue(prev => `${prev || "0"}.`)
+		setErrorMessage("")
+	}
 	const handleConfirm = () => {
 		if (!inputValue) {
-			setErrorMessage('値を入力してください');
-			return;
+			setErrorMessage("値を入力してください")
+			return
 		}
-
-		const numValue = parseFloat(inputValue);
-
-		if (isNaN(numValue)) {
-			setErrorMessage('有効な数値を入力してください');
-			return;
+		const numValue = Number.parseFloat(inputValue)
+		if (Number.isNaN(numValue)) {
+			setErrorMessage("有効な数値を入力してください")
+			return
 		}
-
 		if (min !== undefined && numValue < min) {
-			setErrorMessage(`${min}以上の値を入力してください`);
-			return;
+			setErrorMessage(`${min}以上の値を入力してください`)
+			return
 		}
-
 		if (max !== undefined && numValue > max) {
-			setErrorMessage(`${max}以下の値を入力してください`);
-			return;
+			setErrorMessage(`${max}以下の値を入力してください`)
+			return
 		}
-
-		log.info('Number input confirmed', { value: numValue });
+		log.info("Number input confirmed", { value: numValue })
 		if (onChange) {
-			onChange(numValue);
+			onChange(numValue)
 		}
-		setModalOpen(false);
-		setInputValue('');
-		setErrorMessage('');
-	};
-
+		setModalOpen(false)
+		setInputValue("")
+		setErrorMessage("")
+	}
 	const handleClose = () => {
-		setModalOpen(false);
-		setInputValue('');
-		setErrorMessage('');
-		log.debug('Number input modal closed');
-	};
-
+		setModalOpen(false)
+		setInputValue("")
+		setErrorMessage("")
+		log.debug("Number input modal closed")
+	}
 	return (
 		<>
 			<Input
 				type="text"
-				value={value?.toString() || ''}
+				value={value?.toString() || ""}
 				placeholder={placeholder}
 				onClick={handleOpen}
 				readOnly
@@ -121,9 +107,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 				open={modalOpen}
 				title={label}
 				onClose={handleClose}
-				displayContent={
-					<div className="text-3xl font-bold text-gray-900">{inputValue || '0'}</div>
-				}
+				displayContent={<div className="text-3xl font-bold text-gray-900">{inputValue || "0"}</div>}
 				errorMessage={errorMessage}
 				onNumberClick={handleNumberClick}
 				onBackspace={handleBackspace}
@@ -142,5 +126,5 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 				}
 			/>
 		</>
-	);
-};
+	)
+}

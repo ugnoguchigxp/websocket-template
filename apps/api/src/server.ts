@@ -1,12 +1,16 @@
 import "reflect-metadata";
 import type { IncomingMessage } from "http";
+import * as http from "http";
+import * as https from "https";
+import * as fs from "fs";
+import * as path from "path";
 import { parse } from "url";
-import { logger } from "./modules/logger/core/logger.js";
 import type { PrismaClient } from "@prisma/client";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { inject, injectable } from "tsyringe";
 import { type WebSocket, WebSocketServer } from "ws";
 import { JwtService } from "./JwtService.js";
+import { logger } from "./modules/logger/core/logger.js";
 import type { Context } from "./routers/index.js";
 
 // Extend WebSocket type to include isAlive property
@@ -50,8 +54,6 @@ export class ServerApp {
 		if (!ALLOWED_ORIGIN) {
 			throw new Error("ALLOWED_WS_ORIGIN must be set. See .env.example");
 		}
-		const JWT_ISSUER = process.env.JWT_ISSUER;
-		const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
 		const MAX_CONNECTIONS = Number.parseInt(process.env.MAX_WS_CONNECTIONS || "1000", 10);
 
 		// Import appRouter dynamically to ensure environment variables are loaded first
@@ -59,15 +61,44 @@ export class ServerApp {
 		const { appRouter } = await import("./routers/index.js");
 		logger.debug("Routers module imported successfully");
 
+		// Check if SSL certificates are available
+		const sslCertPath = process.env.SSL_CERT_PATH || "/app/ssl/server.crt";
+		const sslKeyPath = process.env.SSL_KEY_PATH || "/app/ssl/server.key";
+		const useSSL = fs.existsSync(sslCertPath) && fs.existsSync(sslKeyPath);
+
+		let server: http.Server | https.Server;
+
+		if (useSSL) {
+			logger.info("SSL certificates found. Starting HTTPS server...");
+			const sslOptions = {
+				cert: fs.readFileSync(sslCertPath),
+				key: fs.readFileSync(sslKeyPath),
+			};
+			server = https.createServer(sslOptions);
+		} else {
+			logger.warn("SSL certificates not found. Starting HTTP server (NOT recommended for production)");
+			server = http.createServer();
+		}
+
+		// Handle HTTP requests for health check
+		server.on("request", (req, res) => {
+			if (req.url === "/api/health" || req.url === "/health") {
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }));
+			} else {
+				res.writeHead(404);
+				res.end();
+			}
+		});
+
 		const wss = new WebSocketServer({
-			host: "0.0.0.0",
-			port,
+			server,
 			maxPayload: 1_000_000, // 1MB max message size
 			perMessageDeflate: false, // Disable compression to prevent DoS
 			clientTracking: true,
 		});
 		const handler = applyWSSHandler({
-			wss,
+			wss: wss as any,
 			router: appRouter,
 			createContext: ({ req }) => this.createContextFromReq(req),
 		});
@@ -173,13 +204,59 @@ export class ServerApp {
 
 		wss.on("close", () => clearInterval(interval));
 
-		wss.on("listening", () => {
-			logger.info("WebSocket server listening", { port, host: "0.0.0.0" });
+		// Start the server
+		server.listen(port, "0.0.0.0", () => {
+			const protocol = useSSL ? "HTTPS" : "HTTP";
+			logger.info(`${protocol} server listening`, { port, host: "0.0.0.0" });
+			logger.info("WebSocket server ready", { port, protocol: useSSL ? "WSS" : "WS" });
 		});
-		process.on("SIGTERM", () => {
-			handler.broadcastReconnectNotification();
-			wss.close();
-		});
+		const gracefulShutdown = async (signal: string) => {
+			logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+			try {
+				// Broadcast reconnection notification to clients
+				handler.broadcastReconnectNotification();
+
+				// Close all WebSocket connections
+				await new Promise<void>((resolve, reject) => {
+					wss.close((err) => {
+						if (err) {
+							logger.error("Error closing WebSocket server", err);
+							reject(err);
+						} else {
+							logger.info("WebSocket server closed successfully");
+							resolve();
+						}
+					});
+				});
+
+				// Close HTTP/HTTPS server
+				await new Promise<void>((resolve, reject) => {
+					server.close((err) => {
+						if (err) {
+							logger.error("Error closing HTTP server", err);
+							reject(err);
+						} else {
+							logger.info("HTTP server closed successfully");
+							resolve();
+						}
+					});
+				});
+
+				// Close database connections
+				await this.prisma.$disconnect();
+				logger.info("Database connections closed");
+
+				logger.info("Graceful shutdown completed");
+				process.exit(0);
+			} catch (error) {
+				logger.error("Error during graceful shutdown", error as Error);
+				process.exit(1);
+			}
+		};
+
+		process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+		process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 	}
 
 	private createContextFromReq(req: IncomingMessage): Context {

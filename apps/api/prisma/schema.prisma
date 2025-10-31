@@ -2,19 +2,18 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// PostgreSQLを使用する場合（推奨）:
+// SQLiteを使用する場合（開発用）:
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// SQLiteを使用する場合（開発用）:
+// PostgreSQLを使用する場合（推奨）:
 // 上記の datasource db ブロックをコメントアウトし、以下をアンコメントしてください
 // datasource db {
-//   provider = "sqlite"
+//   provider = "postgresql"
 //   url      = env("DATABASE_URL")
 // }
-// そして .env で DATABASE_URL="file:./dev.db" を設定
 
 model User {
   id           Int       @id @default(autoincrement())

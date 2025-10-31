@@ -1,0 +1,38 @@
+# ResourceQuota
+# Limits total resource consumption in the wsfw namespace
+# Prevents resource exhaustion and ensures fair resource allocation
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: wsfw-resource-quota
+  namespace: wsfw
+spec:
+  hard:
+    # Compute Resources
+    requests.cpu: "20"           # Total CPU requests across all pods
+    requests.memory: "32Gi"      # Total memory requests across all pods
+    limits.cpu: "40"             # Total CPU limits across all pods
+    limits.memory: "64Gi"        # Total memory limits across all pods
+
+    # Storage
+    requests.storage: "100Gi"    # Total storage requests
+    persistentvolumeclaims: "10" # Maximum number of PVCs
+
+    # Object Count Limits
+    pods: "50"                   # Maximum number of pods
+    services: "20"               # Maximum number of services
+    secrets: "20"                # Maximum number of secrets
+    configmaps: "20"             # Maximum number of configmaps
+
+    # ReplicationControllers and Deployments
+    count/deployments.apps: "10"
+    count/statefulsets.apps: "5"
+    count/jobs.batch: "10"
+
+  # Scope selectors (optional)
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values: [""]  # Empty string matches pods without priority class

@@ -1,7 +1,7 @@
 import { writeFileSync } from "fs";
 import { join } from "path";
-import { logger } from "@logger";
 import { generateOpenApiDocument } from "trpc-openapi";
+import { logger } from "./modules/logger/index.js";
 import { appRouter } from "./routers/index.js";
 
 const doc = generateOpenApiDocument(appRouter, {

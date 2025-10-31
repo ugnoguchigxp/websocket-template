@@ -1,34 +1,38 @@
-export interface TreeNode {
-	id: string;
-	label: string;
-	labelKey?: string;
-	path?: string;
-	children?: TreeNode[];
-}
-
-export const menuData: TreeNode[] = [
+export const menuData = [
 	{
-		id: 'top',
-		label: 'Top',
-		labelKey: 'top',
-		path: '/',
+		id: "top",
+		label: "Top",
+		labelKey: "top",
+		path: "/",
 	},
 	{
-		id: 'bbs',
-		label: 'BBS',
-		labelKey: 'bbs',
-		path: '/bbs',
+		id: "bbs",
+		label: "BBS",
+		labelKey: "bbs",
+		path: "/bbs",
 	},
 	{
-		id: 'components-demo',
-		label: 'Components Demo',
-		labelKey: 'components_demo',
-		path: '/components-demo',
+		id: "user-management",
+		label: "User Management",
+		labelKey: "user_management",
+		path: "/user-management",
 	},
 	{
-		id: 'notification-demo',
-		label: 'Notification Demo',
-		labelKey: 'notification_demo',
-		path: '/notification-demo',
+		id: "components-demo",
+		label: "Components Demo",
+		labelKey: "components_demo",
+		path: "/components-demo",
 	},
-];
+	{
+		id: "notification-demo",
+		label: "Notification Demo",
+		labelKey: "notification_demo",
+		path: "/notification-demo",
+	},
+	{
+		id: "tetris",
+		label: "Tetris",
+		labelKey: "tetris",
+		path: "/tetris",
+	},
+]

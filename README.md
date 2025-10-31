@@ -22,17 +22,28 @@ websocketFramework/
 ├── apps/
 │   ├── api/               # tRPC WebSocketサーバ、Prisma、JWT検証
 │   │   ├── prisma/        # Prisma schema と dev.db
-│   │   └── src/
-│   │       ├── routers/   # tRPC ルーター定義
-│   │       ├── server.ts  # WebSocket サーバ実装
-│   │       ├── index.ts   # エントリポイント
-│   │       └── openapi.ts # OpenAPI仕様生成
+│   │   ├── src/
+│   │   │   ├── routers/   # tRPC ルーター定義
+│   │   │   ├── server.ts  # WebSocket サーバ実装
+│   │   │   ├── index.ts   # エントリポイント
+│   │   │   └── openapi.ts # OpenAPI仕様生成
+│   │   └── Dockerfile     # APIコンテナイメージ
 │   └── web/               # React Vite アプリ
-│       └── src/
-│           ├── components/ # shadcn/ui コンポーネント
-│           ├── pages/     # ページコンポーネント
-│           ├── lib/       # tRPC クライアント等
-│           └── modules/   # logger等の共通モジュール
+│       ├── src/
+│       │   ├── components/ # shadcn/ui コンポーネント
+│       │   ├── pages/     # ページコンポーネント
+│       │   ├── lib/       # tRPC クライアント等
+│       │   └── modules/   # logger等の共通モジュール
+│       └── Dockerfile     # Webコンテナイメージ
+├── docker/                # Docker Compose構成
+│   ├── nginx/            # nginxリバースプロキシ設定
+│   ├── postgres/         # PostgreSQL設定
+│   └── docker-compose.*.yml
+├── k8s/                   # Kubernetes/AKS デプロイメント
+│   ├── manifests/        # Kubernetesマニフェストファイル
+│   ├── ARCHITECTURE-COMPARISON.md
+│   ├── AKS-DEPLOYMENT-GUIDE.md
+│   └── README.md
 ├── .env.example           # 環境変数テンプレート
 └── package.json           # pnpm workspace ルート
 ```
@@ -196,6 +207,97 @@ websocketFramework/
 - **永続化**: Redis等でレート制限・監査ログを永続化
 - **HTMLサニタイズ**: DOMPurify 等でXSS対策を強化
 - **シークレット管理**: 環境変数管理ツール（AWS Secrets Manager、HashiCorp Vault等）の使用
+
+## デプロイメント
+
+このプロジェクトは複数のデプロイメント方法をサポートしています。
+
+### オプション1: 開発環境（ローカル）
+
+上記のセットアップ手順に従って、ローカル環境で起動します。
+
+```bash
+pnpm dev
+```
+
+### オプション2: Docker Compose（本番対応）
+
+**詳細**: [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+完全なSSL/TLS暗号化を備えたDocker Compose構成。
+
+**特徴**:
+- nginxリバースプロキシによるSSL終端
+- 内部通信もSSL/TLS暗号化（Zero Trust）
+- PostgreSQL（SSL対応）
+- 自動証明書生成スクリプト
+
+**クイックスタート**:
+```bash
+# 証明書生成
+cd docker && ./generate-internal-certs.sh
+
+# 起動
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+**アーキテクチャ**:
+```
+Internet (HTTPS/WSS)
+   ↓
+nginx (SSL終端、リバースプロキシ)
+   ↓
+├─ Web Container (nginx + React SPA) - 内部SSL
+└─ API Container (Node.js + tRPC) - 内部SSL
+       ↓
+   PostgreSQL (SSL接続)
+```
+
+### オプション3: Kubernetes / AKS（本番推奨）
+
+**詳細**: [k8s/AKS-DEPLOYMENT-GUIDE.md](./k8s/AKS-DEPLOYMENT-GUIDE.md)
+
+Azure Kubernetes Service (AKS) への完全なデプロイメント構成。
+
+**特徴**:
+- Ingress Controller（nginx-ingress または AGIC）
+- 自動スケーリング（HPA）
+- SSL証明書自動管理（cert-manager + Let's Encrypt）
+- Pod Security Standards
+- Azure Database for PostgreSQL統合
+- 監視・ロギング統合（Azure Monitor）
+
+**クイックスタート**:
+```bash
+# マニフェスト準備
+cd k8s/manifests
+cp secrets.yaml.template secrets.yaml
+vi secrets.yaml  # 実際の値を設定
+
+# デプロイ
+kubectl apply -k .
+```
+
+**アーキテクチャ比較**:
+| 項目 | Docker Compose | Kubernetes (AKS) |
+|-----|---------------|------------------|
+| nginxリバースプロキシ | ✅ 必要 | ❌ 不要（Ingress） |
+| スケーリング | 手動 | 自動（HPA） |
+| SSL管理 | 手動 | 自動（cert-manager） |
+| ロードバランシング | なし | 自動（Service） |
+| 高可用性 | 限定的 | ✅ |
+
+**ドキュメント**:
+- [k8s/README.md](./k8s/README.md) - 概要とクイックスタート
+- [k8s/AKS-DEPLOYMENT-GUIDE.md](./k8s/AKS-DEPLOYMENT-GUIDE.md) - 完全なデプロイガイド
+- [k8s/ARCHITECTURE-COMPARISON.md](./k8s/ARCHITECTURE-COMPARISON.md) - アーキテクチャ詳細比較
+
+**主要リソース**:
+- Ingress: nginx-ingress または Application Gateway
+- Deployment: API（2-10レプリカ）、Web（2-8レプリカ）
+- Database: Azure Database for PostgreSQL または StatefulSet
+- Monitoring: Azure Monitor / Container Insights
+- CI/CD: GitHub Actions / Azure DevOps
 
 ## セットアップ手順
 
@@ -400,11 +502,14 @@ pnpm db:push
 
 ## 今後の拡張案
 - [x] PostgreSQL 対応（完了）
-- [x] Docker コンテナ化（PostgreSQL用完了）
+- [x] Docker コンテナ化（完了 - SSL/TLS対応）
+- [x] Kubernetes/AKS デプロイメント構成（完了）
+- [x] セキュリティレビューと強化（完了）
 - [ ] テストコード整備（Vitest + Testing Library）
-- [ ] CI/CD パイプライン（GitHub Actions）
+- [ ] CI/CD パイプライン（GitHub Actions / Azure DevOps）
 - [ ] Redis によるレート制限の永続化
 - [ ] WebSocket クラスタリング（Sticky Sessions + PubSub）
+- [ ] Service Mesh（Istio/Linkerd）による内部mTLS
 - [ ] 管理画面の実装
 - [ ] ファイルアップロード機能
 - [ ] リアルタイム通知（Subscription）

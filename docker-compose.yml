@@ -20,6 +20,52 @@ services:
       timeout: 5s
       retries: 5
 
+  # API Server
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: websocket-bbs-api
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/websocket_bbs?schema=public"
+      JWT_SECRET: "your-secret-key-here-at-least-32-characters-long"
+      PORT: 3001
+      ALLOWED_WS_ORIGIN: "http://localhost:5173"
+      JWT_ISSUER: "websocket-framework"
+      JWT_AUDIENCE: "websocket-framework-api"
+      NODE_ENV: "production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Web Frontend
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: websocket-bbs-web
+    restart: unless-stopped
+    ports:
+      - '5173:80'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # Optional: PostgreSQL管理ツール
   pgadmin:
     image: dpage/pgadmin4:latest

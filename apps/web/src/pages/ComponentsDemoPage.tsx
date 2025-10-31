@@ -1,51 +1,40 @@
-import React, { useState } from 'react';
-import { createContextLogger } from '@logger';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Textarea } from '../components/ui/Textarea';
-import DatePicker from '../components/ui/DatePicker';
-import { NumberInput } from '../components/ui/NumberInput';
-import { TimeInput } from '../components/ui/TimeInput';
-import { TimeNumberInput } from '../components/ui/TimeNumberInput';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/Dialog';
-import Tooltip from '../components/ui/Tooltip';
-import Drawer from '../components/ui/Drawer';
-import { useNotificationContext } from '../contexts/NotificationContext';
-import { Link } from 'react-router-dom';
-
-const log = createContextLogger('ComponentsDemoPage');
-
+import { createContextLogger } from "@logger"
+import React, { useState } from "react"
+import { Link } from "react-router-dom"
+import { Button } from "../components/ui/Button"
+import DatePicker from "../components/ui/DatePicker"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/Dialog"
+import Drawer from "../components/ui/Drawer"
+import { Input } from "../components/ui/Input"
+import { NumberInput } from "../components/ui/NumberInput"
+import { Textarea } from "../components/ui/Textarea"
+import { TimeInput } from "../components/ui/TimeInput"
+import { TimeNumberInput } from "../components/ui/TimeNumberInput"
+import Tooltip from "../components/ui/Tooltip"
+import { useNotificationContext } from "../contexts/NotificationContext"
+const log = createContextLogger("ComponentsDemoPage")
 export function ComponentsDemoPage() {
-	const { showSuccess, showError, showWarning, showInfo } = useNotificationContext();
-
+	const { showSuccess, showError, showWarning, showInfo } = useNotificationContext()
 	// Button states
-	const [buttonLoading, setButtonLoading] = useState(false);
-
+	const [buttonLoading, setButtonLoading] = useState(false)
 	// Input states
-	const [inputValue, setInputValue] = useState('');
-	const [textareaValue, setTextareaValue] = useState('');
-
+	const [inputValue, setInputValue] = useState("")
+	const [textareaValue, setTextareaValue] = useState("")
 	// DatePicker states
-	const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-	const [startDate, setStartDate] = useState<Date | null>(null);
-	const [endDate, setEndDate] = useState<Date | null>(null);
-
+	const [selectedDate, setSelectedDate] = useState(new Date())
+	const [startDate, setStartDate] = useState(null)
+	const [endDate, setEndDate] = useState(null)
 	// NumberInput states
-	const [numberValue, setNumberValue] = useState<number | null>(null);
-	const [priceValue, setPriceValue] = useState<number | null>(null);
-
+	const [numberValue, setNumberValue] = useState(null)
+	const [priceValue, setPriceValue] = useState(null)
 	// TimeInput states
-	const [timeValue, setTimeValue] = useState<string | null>(null);
-	const [timeNumberValue, setTimeNumberValue] = useState<number | null>(null);
-
+	const [timeValue, setTimeValue] = useState(null)
+	const [timeNumberValue, setTimeNumberValue] = useState(null)
 	// Dialog states
-	const [dialogOpen, setDialogOpen] = useState(false);
-
+	const [dialogOpen, setDialogOpen] = useState(false)
 	// Drawer states
-	const [drawerOpen, setDrawerOpen] = useState(false);
-
-	log.info('ComponentsDemoPage rendered');
-
+	const [drawerOpen, setDrawerOpen] = useState(false)
+	log.info("ComponentsDemoPage rendered")
 	return (
 		<div className="min-h-screen bg-gray-100">
 			<div className="max-w-7xl mx-auto px-4 py-8">
@@ -85,11 +74,11 @@ export function ComponentsDemoPage() {
 									<Button
 										disabled={buttonLoading}
 										onClick={() => {
-											setButtonLoading(true);
-											setTimeout(() => setButtonLoading(false), 2000);
+											setButtonLoading(true)
+											setTimeout(() => setButtonLoading(false), 2000)
 										}}
 									>
-										{buttonLoading ? 'Loading...' : 'Click to Load'}
+										{buttonLoading ? "Loading..." : "Click to Load"}
 									</Button>
 								</div>
 							</div>
@@ -101,22 +90,44 @@ export function ComponentsDemoPage() {
 						<h2 className="text-2xl font-bold text-gray-900 mb-4">Input</h2>
 						<div className="space-y-4 max-w-md">
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Text Input</label>
+								<label
+									htmlFor="text-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Text Input
+								</label>
 								<Input
+									id="text-input"
 									type="text"
 									placeholder="Enter text..."
 									value={inputValue}
-									onChange={(e) => setInputValue(e.target.value)}
+									onChange={e => setInputValue(e.target.value)}
 								/>
 								{inputValue && <p className="text-sm text-gray-600 mt-1">Value: {inputValue}</p>}
 							</div>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Password Input</label>
-								<Input type="password" placeholder="Enter password..." />
+								<label
+									htmlFor="password-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Password Input
+								</label>
+								<Input id="password-input" type="password" placeholder="Enter password..." />
 							</div>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Disabled Input</label>
-								<Input type="text" placeholder="Disabled" disabled value="Cannot edit" />
+								<label
+									htmlFor="disabled-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Disabled Input
+								</label>
+								<Input
+									id="disabled-input"
+									type="text"
+									placeholder="Disabled"
+									disabled
+									value="Cannot edit"
+								/>
 							</div>
 						</div>
 					</section>
@@ -126,11 +137,17 @@ export function ComponentsDemoPage() {
 						<h2 className="text-2xl font-bold text-gray-900 mb-4">Textarea</h2>
 						<div className="space-y-4 max-w-md">
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Multiline Text</label>
+								<label
+									htmlFor="multiline-text"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Multiline Text
+								</label>
 								<Textarea
+									id="multiline-text"
 									placeholder="Enter multiline text..."
 									value={textareaValue}
-									onChange={(e) => setTextareaValue(e.target.value)}
+									onChange={e => setTextareaValue(e.target.value)}
 									rows={4}
 								/>
 								{textareaValue && (
@@ -145,31 +162,47 @@ export function ComponentsDemoPage() {
 						<h2 className="text-2xl font-bold text-gray-900 mb-4">DatePicker</h2>
 						<div className="space-y-4 max-w-md">
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Single Date</label>
-								<DatePicker value={selectedDate} onChange={setSelectedDate} label="日付を選択" />
+								<label
+									htmlFor="single-date"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Single Date
+								</label>
+								<DatePicker
+									id="single-date"
+									value={selectedDate}
+									onChange={setSelectedDate}
+									label="日付を選択"
+								/>
 								{selectedDate && (
 									<p className="text-sm text-gray-600 mt-1">
-										Selected: {selectedDate.toLocaleDateString('ja-JP')}
+										Selected: {selectedDate.toLocaleDateString("ja-JP")}
 									</p>
 								)}
 							</div>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+								<label
+									htmlFor="date-range"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									Date Range
+								</label>
 								<DatePicker
+									id="date-range"
 									selectsRange
 									startDate={startDate}
 									endDate={endDate}
 									onRangeChange={([start, end]) => {
-										setStartDate(start);
-										setEndDate(end);
+										setStartDate(start)
+										setEndDate(end)
 									}}
 									label="期間を選択"
 									monthsShown={2}
 								/>
 								{startDate && endDate && (
 									<p className="text-sm text-gray-600 mt-1">
-										Range: {startDate.toLocaleDateString('ja-JP')} -{' '}
-										{endDate.toLocaleDateString('ja-JP')}
+										Range: {startDate.toLocaleDateString("ja-JP")} -{" "}
+										{endDate.toLocaleDateString("ja-JP")}
 									</p>
 								)}
 							</div>
@@ -184,12 +217,18 @@ export function ComponentsDemoPage() {
 								キーパッド付き数値入力フィールド。タップするとキーパッドモーダルが開きます。
 							</p>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">整数入力</label>
+								<label
+									htmlFor="integer-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									整数入力
+								</label>
 								<NumberInput
+									id="integer-input"
 									value={numberValue}
-									onChange={(val) => {
-										setNumberValue(val);
-										if (val) showSuccess('入力完了', `値: ${val}`);
+									onChange={val => {
+										setNumberValue(val)
+										if (val) showSuccess("入力完了", `値: ${val}`)
 									}}
 									label="数値を入力"
 									placeholder="タップして入力"
@@ -201,12 +240,18 @@ export function ComponentsDemoPage() {
 								)}
 							</div>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">小数点入力 (価格)</label>
+								<label
+									htmlFor="price-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
+									小数点入力 (価格)
+								</label>
 								<NumberInput
+									id="price-input"
 									value={priceValue}
-									onChange={(val) => {
-										setPriceValue(val);
-										if (val) showSuccess('価格入力完了', `¥${val.toLocaleString()}`);
+									onChange={val => {
+										setPriceValue(val)
+										if (val) showSuccess("価格入力完了", `¥${val.toLocaleString()}`)
 									}}
 									label="価格を入力"
 									placeholder="タップして入力"
@@ -230,14 +275,18 @@ export function ComponentsDemoPage() {
 								キーパッド付き時刻入力フィールド。タップするとキーパッドモーダルが開きます。
 							</p>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">
+								<label
+									htmlFor="time-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
 									時刻入力 (HH:MM形式)
 								</label>
 								<TimeInput
+									id="time-input"
 									value={timeValue}
-									onChange={(val) => {
-										setTimeValue(val);
-										if (val) showSuccess('時刻入力完了', `時刻: ${val}`);
+									onChange={val => {
+										setTimeValue(val)
+										if (val) showSuccess("時刻入力完了", `時刻: ${val}`)
 									}}
 									label="時刻を入力"
 									placeholder="タップして入力"
@@ -245,15 +294,19 @@ export function ComponentsDemoPage() {
 								{timeValue && <p className="text-sm text-gray-600 mt-1">Time: {timeValue}</p>}
 							</div>
 							<div>
-								<label className="block text-sm font-medium text-gray-700 mb-1">
+								<label
+									htmlFor="time-number-input"
+									className="block text-sm font-medium text-gray-700 mb-1"
+								>
 									時刻入力 (4桁数値 HHMM形式)
 								</label>
 								<TimeNumberInput
+									id="time-number-input"
 									value={timeNumberValue}
 									onChange={(numVal, formattedTime) => {
-										setTimeNumberValue(numVal);
+										setTimeNumberValue(numVal)
 										if (numVal && formattedTime) {
-											showSuccess('時刻入力完了', `数値: ${numVal} (${formattedTime})`);
+											showSuccess("時刻入力完了", `数値: ${numVal} (${formattedTime})`)
 										}
 									}}
 									label="時刻を4桁で入力"
@@ -261,9 +314,8 @@ export function ComponentsDemoPage() {
 								/>
 								{timeNumberValue !== null && (
 									<p className="text-sm text-gray-600 mt-1">
-										Value: {timeNumberValue} (
-										{String(timeNumberValue).padStart(4, '0').slice(0, 2)}:
-										{String(timeNumberValue).padStart(4, '0').slice(2, 4)})
+										Value: {timeNumberValue} ({String(timeNumberValue).padStart(4, "0").slice(0, 2)}
+										:{String(timeNumberValue).padStart(4, "0").slice(2, 4)})
 									</p>
 								)}
 							</div>
@@ -345,24 +397,27 @@ export function ComponentsDemoPage() {
 								をご覧ください。
 							</p>
 							<div className="flex flex-wrap gap-3">
-								<Button variant="default" onClick={() => showInfo('情報', 'これは情報メッセージです')}>
+								<Button
+									variant="default"
+									onClick={() => showInfo("情報", "これは情報メッセージです")}
+								>
 									Info
 								</Button>
 								<Button
 									variant="default"
-									onClick={() => showSuccess('成功', '操作が正常に完了しました')}
+									onClick={() => showSuccess("成功", "操作が正常に完了しました")}
 								>
 									Success
 								</Button>
 								<Button
 									variant="default"
-									onClick={() => showWarning('警告', '注意が必要な操作です')}
+									onClick={() => showWarning("警告", "注意が必要な操作です")}
 								>
 									Warning
 								</Button>
 								<Button
 									variant="destructive"
-									onClick={() => showError('エラー', 'エラーが発生しました')}
+									onClick={() => showError("エラー", "エラーが発生しました")}
 								>
 									Error
 								</Button>
@@ -372,5 +427,5 @@ export function ComponentsDemoPage() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

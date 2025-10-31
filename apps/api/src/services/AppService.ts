@@ -1,7 +1,7 @@
-import { logger } from "../modules/logger/core/logger.js";
 import { inject, injectable } from "tsyringe";
 import type { IEnvironmentService } from "../interfaces/IAppService.js";
 import type { IDbInitializer } from "../interfaces/IDbService.js";
+import { logger } from "../modules/logger/core/logger.js";
 
 @injectable()
 export class AppService {

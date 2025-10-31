@@ -165,7 +165,7 @@ docs/.vitepress/cache/
 *.sln
 *.sw?
 
-# Security
+# Security - SSL Certificates
 *.pem
 *.key
 *.crt
@@ -173,6 +173,11 @@ docs/.vitepress/cache/
 *.pfx
 certs/
 ssl/
+docker/certs/
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+docker/nginx/ssl/*.crt
+docker/postgres/ssl/
 
 # Generated files
 generated/

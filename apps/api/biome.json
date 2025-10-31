@@ -13,7 +13,10 @@
       "coverage/**",
       "*.d.ts",
       "*.js",
-      "src/**/*.js"
+      "src/**/*.js",
+      "src/**/index-*.ts",
+      "src/**/simple-*.ts",
+      "src/start.ts"
     ]
   },
   "formatter": {

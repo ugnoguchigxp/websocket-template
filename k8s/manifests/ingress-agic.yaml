@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wsfw-agic-ingress
+  namespace: wsfw
+  annotations:
+    # Application Gateway Ingress Controller (AGIC) specific annotations
+    kubernetes.io/ingress.class: azure/application-gateway
+
+    # SSL redirect
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+
+    # Backend protocol (API needs HTTPS if using SSL internally)
+    appgw.ingress.kubernetes.io/backend-protocol: "http"
+
+    # Connection draining
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+
+    # Health probe configuration
+    appgw.ingress.kubernetes.io/health-probe-status-codes: "200-399"
+    appgw.ingress.kubernetes.io/health-probe-interval: "30"
+    appgw.ingress.kubernetes.io/health-probe-timeout: "30"
+    appgw.ingress.kubernetes.io/health-probe-unhealthy-threshold: "3"
+
+    # Request timeout (extended for WebSocket support)
+    appgw.ingress.kubernetes.io/request-timeout: "3600"
+
+    # WebSocket support (enabled by default in Application Gateway)
+    # Connection timeout for WebSocket
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "3600"
+
+    # WAF policy (if using WAF-enabled SKU)
+    # appgw.ingress.kubernetes.io/waf-policy-for-path: "/subscriptions/.../resourceGroups/.../providers/Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/..."
+
+    # cert-manager annotation (if using cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+spec:
+  tls:
+  - hosts:
+    - yourdomain.com  # Replace with your actual domain
+    secretName: tls-secret  # Will be created by cert-manager or manually
+
+  rules:
+  - host: yourdomain.com  # Replace with your actual domain
+    http:
+      paths:
+      # WebSocket endpoint
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 3001
+
+      # API endpoints
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 3001
+
+      # Frontend application (must be last to catch all other paths)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-service
+            port:
+              number: 80

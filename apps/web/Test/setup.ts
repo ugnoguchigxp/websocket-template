@@ -1,72 +1,61 @@
-import '@testing-library/jest-dom';
-import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
-
+import "@testing-library/jest-dom"
+import { cleanup } from "@testing-library/react"
+import { afterEach, vi } from "vitest"
 // Cleanup after each test
 afterEach(() => {
-	cleanup();
-	vi.clearAllMocks();
-	sessionStorage.clear();
-	localStorage.clear();
-});
-
+	cleanup()
+	vi.clearAllMocks()
+	sessionStorage.clear()
+	localStorage.clear()
+})
 // Mock window.location
-delete (window as { location?: Location }).location;
+window.location = undefined
 window.location = {
 	...window.location,
-	hostname: 'localhost',
-	protocol: 'http:',
+	hostname: "localhost",
+	protocol: "http:",
 	reload: vi.fn(),
-};
-
+}
 // Mock WebSocket
 class MockWebSocket {
-	static CONNECTING = 0;
-	static OPEN = 1;
-	static CLOSING = 2;
-	static CLOSED = 3;
-
-	readyState = MockWebSocket.OPEN;
-	url: string;
-	protocol: string;
-	onopen: ((event: Event) => void) | null = null;
-	onclose: ((event: CloseEvent) => void) | null = null;
-	onerror: ((event: Event) => void) | null = null;
-	onmessage: ((event: MessageEvent) => void) | null = null;
-
-	constructor(url: string, protocols?: string | string[]) {
-		this.url = url;
-		this.protocol = Array.isArray(protocols) ? protocols[0] : protocols || '';
+	static CONNECTING = 0
+	static OPEN = 1
+	static CLOSING = 2
+	static CLOSED = 3
+	readyState = MockWebSocket.OPEN
+	url
+	protocol
+	onopen = null
+	onclose = null
+	onerror = null
+	onmessage = null
+	constructor(url, protocols) {
+		this.url = url
+		this.protocol = Array.isArray(protocols) ? protocols[0] : protocols || ""
 		setTimeout(() => {
 			if (this.onopen) {
-				this.onopen(new Event('open'));
+				this.onopen(new Event("open"))
 			}
-		}, 0);
+		}, 0)
 	}
-
-	send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
+	send(_data) {
 		// Mock implementation
 	}
-
-	close(code?: number, reason?: string): void {
-		this.readyState = MockWebSocket.CLOSED;
+	close(code, reason) {
+		this.readyState = MockWebSocket.CLOSED
 		if (this.onclose) {
-			const event = new CloseEvent('close', { code, reason });
-			this.onclose(event);
+			const event = new CloseEvent("close", { code, reason })
+			this.onclose(event)
 		}
 	}
-
-	addEventListener(type: string, listener: EventListener): void {
+	addEventListener(_type, _listener) {
 		// Mock implementation
 	}
-
-	removeEventListener(type: string, listener: EventListener): void {
+	removeEventListener(_type, _listener) {
 		// Mock implementation
 	}
-
-	dispatchEvent(event: Event): boolean {
-		return true;
+	dispatchEvent(_event) {
+		return true
 	}
 }
-
-global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+global.WebSocket = MockWebSocket

@@ -1,0 +1,190 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with SSL
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    container_name: wsfw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-websocket_bbs}
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --locale=C'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/certs/postgres/server.crt:/var/lib/postgresql/ssl/server.crt:ro
+      - ./docker/certs/postgres/server.key:/var/lib/postgresql/ssl/server.key:ro
+      - ./docker/certs/postgres/ca.crt:/var/lib/postgresql/ssl/ca.crt:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # Backend API with SSL
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: wsfw-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/websocket_bbs?sslmode=require}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-websocket-framework}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-websocket-framework-api}
+      SSL_CERT_PATH: /app/ssl/server.crt
+      SSL_KEY_PATH: /app/ssl/server.key
+      PGSSLMODE: require
+      ALLOWED_WS_ORIGIN: ${ALLOWED_WS_ORIGIN}
+      MAX_WS_CONNECTIONS: ${MAX_WS_CONNECTIONS:-1000}
+      RATE_LIMIT_TOKENS: ${RATE_LIMIT_TOKENS:-60}
+      RATE_LIMIT_INTERVAL_MS: ${RATE_LIMIT_INTERVAL_MS:-60000}
+    volumes:
+      - api_data:/app/data
+      - ./docker/certs/api/server.crt:/app/ssl/server.crt:ro
+      - ./docker/certs/api/server.key:/app/ssl/server.key:ro
+      - ./docker/certs/ca.crt:/app/ssl/ca.crt:ro
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', '--no-check-certificate', 'https://localhost:3001/api/health']
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    security_opt:
+      - no-new-privileges:true
+
+  # Frontend Web with SSL
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: wsfw-web
+    restart: unless-stopped
+    volumes:
+      - ./docker/certs/web/server.crt:/etc/nginx/ssl/server.crt:ro
+      - ./docker/certs/web/server.key:/etc/nginx/ssl/server.key:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/']
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+
+  # Nginx Reverse Proxy with SSL
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    container_name: wsfw-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./docker/nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./docker/nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
+    networks:
+      - app-network
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  api_data:
+    driver: local
