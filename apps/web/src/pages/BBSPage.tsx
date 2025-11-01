@@ -1,9 +1,11 @@
 import { createContextLogger } from "@logger"
+import type { ColumnDef } from "@tanstack/react-table"
 import React, { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "../components/ui/Button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/Dialog"
 import { Input } from "../components/ui/Input"
+import { Table } from "../components/ui/Table"
 import { Textarea } from "../components/ui/Textarea"
 import { useNotificationContext } from "../contexts/NotificationContext"
 import i18n from "../i18n"
@@ -53,11 +55,8 @@ export function BBSPage() {
 			log.error("Failed to add comment", e)
 		},
 	})
-	const selectedPost = useMemo(
-		() => posts.data?.items.find(p => p.id === selectedPostId),
-		[posts.data, selectedPostId]
-	)
-	const formatDate = date => {
+	// Helper function to format date
+	const formatDate = (date: string) => {
 		return new Date(date).toLocaleString(i18n.language === "ja" ? "ja-JP" : "en-US", {
 			year: "numeric",
 			month: "2-digit",
@@ -66,6 +65,64 @@ export function BBSPage() {
 			minute: "2-digit",
 		})
 	}
+
+	// Event handlers
+	const handleCreatePost = () => {
+		createPost.mutate({ title, body })
+	}
+
+	const handleAddComment = () => {
+		if (selectedPostId) {
+			addComment.mutate({ postId: selectedPostId, body: commentBody })
+		}
+	}
+
+	// Table columns
+	const columns = useMemo<ColumnDef<any>[]>(
+		() => [
+			{
+				accessorKey: "id",
+				header: () => <span className="font-mono">{t("number")}</span>,
+				cell: info => <span className="font-mono text-gray-600">{info.getValue()}</span>,
+			},
+			{
+				accessorKey: "title",
+				header: () => <span className="font-mono">{t("title")}</span>,
+				cell: info => {
+					const post = info.row.original
+					return (
+						<button
+							className="font-mono text-left text-blue-600 underline hover:text-blue-800 w-full"
+							onClick={() => setSelectedPostId(post.id)}
+							data-testid="post-title"
+						>
+							{info.getValue()}
+						</button>
+					)
+				},
+			},
+			{
+				accessorKey: "author",
+				header: () => <span className="font-mono">{t("author")}</span>,
+				cell: info => <span className="font-mono text-gray-700">{info.getValue()?.username}</span>,
+			},
+			{
+				accessorKey: "createdAt",
+				header: () => <span className="font-mono">{t("posted_at")}</span>,
+				cell: info => (
+					<span className="font-mono text-gray-600">{formatDate(info.getValue())}</span>
+				),
+			},
+		],
+		[t, formatDate]
+	)
+
+	// Helper to get selected post
+	const selectedPost = useMemo(
+		() => posts.data?.items.find(p => p.id === selectedPostId),
+		[posts.data, selectedPostId]
+	)
+
 	return (
 		<div className="bg-gray-100 min-h-full">
 			<main className="max-w-6xl mx-auto px-4 py-6">
@@ -77,51 +134,19 @@ export function BBSPage() {
 				</div>
 
 				{/* Thread List */}
-				<div className="bg-white border border-gray-400 mb-6" data-testid="post-list">
-					<div className="bg-gray-200 border-b border-gray-400 px-4 py-2">
-						<h2 className="font-bold font-mono">{t("thread_list")}</h2>
-					</div>
-					<div className="divide-y divide-gray-300">
-						{posts.isLoading ? (
-							<div className="px-4 py-8 text-center font-mono text-gray-500">{t("loading")}</div>
-						) : posts.data?.items.length ? (
-							<table className="w-full font-mono text-sm">
-								<thead className="bg-gray-100">
-									<tr className="border-b border-gray-300">
-										<th className="px-4 py-2 text-left">{t("number")}</th>
-										<th className="px-4 py-2 text-left">{t("title")}</th>
-										<th className="px-4 py-2 text-left">{t("author")}</th>
-										<th className="px-4 py-2 text-left">{t("posted_at")}</th>
-									</tr>
-								</thead>
-								<tbody>
-									{posts.data.items.map((post, index) => (
-										<tr
-											key={post.id}
-											className={`hover:bg-blue-50 cursor-pointer ${selectedPostId === post.id ? "bg-blue-100" : ""}`}
-											onClick={() => setSelectedPostId(post.id)}
-											onKeyDown={e => {
-												if (e.key === "Enter" || e.key === " ") {
-													e.preventDefault()
-													setSelectedPostId(post.id)
-												}
-											}}
-											tabIndex={0}
-											data-testid="post-item"
-										>
-											<td className="px-4 py-2 text-gray-600">{index + 1}</td>
-											<td className="px-4 py-2 font-bold" data-testid="post-title">{post.title}</td>
-											<td className="px-4 py-2 text-gray-700">{post.author.username}</td>
-											<td className="px-4 py-2 text-gray-600">{formatDate(post.createdAt)}</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						) : (
-							<div className="px-4 py-8 text-center font-mono text-gray-500">{t("no_posts")}</div>
-						)}
-					</div>
-				</div>
+				<Table
+					data={posts.data?.items ?? []}
+					columns={columns}
+					loading={posts.isLoading}
+					emptyMessage={t("no_posts")}
+					enableSelection={false}
+					enableSorting={true}
+					enablePagination={true}
+					enableFiltering={true}
+					pageSize={20}
+					className="mb-6"
+					data-testid="post-list"
+				/>
 
 				{/* Selected Thread */}
 				{selectedPost && (
@@ -178,10 +203,7 @@ export function BBSPage() {
 									data-testid="comment-input"
 								/>
 								<Button
-									onClick={() =>
-										selectedPostId &&
-										addComment.mutate({ postId: selectedPostId, body: commentBody })
-									}
+									onClick={handleAddComment}
 									disabled={!commentBody || addComment.isPending}
 									className="font-mono"
 									data-testid="add-comment-button"
@@ -235,7 +257,7 @@ export function BBSPage() {
 								{t("cancel")}
 							</Button>
 							<Button
-								onClick={() => createPost.mutate({ title, body })}
+								onClick={handleCreatePost}
 								disabled={!title || !body || createPost.isPending}
 								className="font-mono"
 								data-testid="create-post-button"

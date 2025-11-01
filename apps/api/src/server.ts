@@ -1,9 +1,8 @@
 import "reflect-metadata";
+import * as fs from "fs";
 import type { IncomingMessage } from "http";
 import * as http from "http";
 import * as https from "https";
-import * as fs from "fs";
-import * as path from "path";
 import { parse } from "url";
 import type { PrismaClient } from "@prisma/client";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
@@ -76,7 +75,9 @@ export class ServerApp {
 			};
 			server = https.createServer(sslOptions);
 		} else {
-			logger.warn("SSL certificates not found. Starting HTTP server (NOT recommended for production)");
+			logger.warn(
+				"SSL certificates not found. Starting HTTP server (NOT recommended for production)"
+			);
 			server = http.createServer();
 		}
 
@@ -100,7 +101,7 @@ export class ServerApp {
 		const handler = applyWSSHandler({
 			wss: wss as any,
 			router: appRouter,
-			createContext: ({ req }) => this.createContextFromReq(req),
+			createContext: async ({ req }) => this.createContextFromReq(req),
 		});
 
 		wss.on("connection", (socket, req) => {
@@ -259,14 +260,14 @@ export class ServerApp {
 		process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 	}
 
-	private createContextFromReq(req: IncomingMessage): Context {
+	private async createContextFromReq(req: IncomingMessage): Promise<Context> {
 		// Extract token using shared method
 		const token = this.extractToken(req);
 
 		let userId: string | null = null;
 		if (token) {
 			// Use JwtService for verification
-			userId = this.jwtService.verify(token);
+			userId = await this.jwtService.verify(token);
 		} else {
 			logger.debug("No JWT token provided");
 		}

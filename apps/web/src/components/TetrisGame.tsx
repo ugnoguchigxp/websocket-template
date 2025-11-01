@@ -19,18 +19,56 @@ const SPEED_INCREASE = 50
 
 const TETROMINOS = [
 	{ shape: [[1, 1, 1, 1]], color: "bg-cyan-400" }, // I
-	{ shape: [[1, 1], [1, 1]], color: "bg-yellow-400" }, // O
-	{ shape: [[0, 1, 0], [1, 1, 1]], color: "bg-purple-400" }, // T
-	{ shape: [[1, 1, 0], [0, 1, 1]], color: "bg-green-400" }, // S
-	{ shape: [[0, 1, 1], [1, 1, 0]], color: "bg-red-400" }, // Z
-	{ shape: [[1, 0, 0], [1, 1, 1]], color: "bg-blue-400" }, // J
-	{ shape: [[0, 0, 1], [1, 1, 1]], color: "bg-orange-400" }, // L
+	{
+		shape: [
+			[1, 1],
+			[1, 1],
+		],
+		color: "bg-yellow-400",
+	}, // O
+	{
+		shape: [
+			[0, 1, 0],
+			[1, 1, 1],
+		],
+		color: "bg-purple-400",
+	}, // T
+	{
+		shape: [
+			[1, 1, 0],
+			[0, 1, 1],
+		],
+		color: "bg-green-400",
+	}, // S
+	{
+		shape: [
+			[0, 1, 1],
+			[1, 1, 0],
+		],
+		color: "bg-red-400",
+	}, // Z
+	{
+		shape: [
+			[1, 0, 0],
+			[1, 1, 1],
+		],
+		color: "bg-blue-400",
+	}, // J
+	{
+		shape: [
+			[0, 0, 1],
+			[1, 1, 1],
+		],
+		color: "bg-orange-400",
+	}, // L
 ]
 
 export const TetrisGame = () => {
 	const { t } = useTranslation()
 	const [board, setBoard] = useState<string[][]>(() =>
-		Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(""))
+		Array(BOARD_HEIGHT)
+			.fill(null)
+			.map(() => Array(BOARD_WIDTH).fill(""))
 	)
 	const [currentPiece, setCurrentPiece] = useState<Piece | null>(null)
 	const [score, setScore] = useState(0)
@@ -50,36 +88,31 @@ export const TetrisGame = () => {
 		}
 	}, [])
 
-	const isValidMove = useCallback(
-		(piece: Piece, board: string[][]): boolean => {
-			for (let y = 0; y < piece.shape.length; y++) {
-				for (let x = 0; x < piece.shape[y].length; x++) {
-					if (piece.shape[y][x]) {
-						const newX = piece.position.x + x
-						const newY = piece.position.y + y
+	const isValidMove = useCallback((piece: Piece, board: string[][]): boolean => {
+		for (let y = 0; y < piece.shape.length; y++) {
+			for (let x = 0; x < piece.shape[y].length; x++) {
+				if (piece.shape[y][x]) {
+					const newX = piece.position.x + x
+					const newY = piece.position.y + y
 
-						if (
-							newX < 0 ||
-							newX >= BOARD_WIDTH ||
-							newY >= BOARD_HEIGHT ||
-							(newY >= 0 && board[newY][newX])
-						) {
-							return false
-						}
+					if (
+						newX < 0 ||
+						newX >= BOARD_WIDTH ||
+						newY >= BOARD_HEIGHT ||
+						(newY >= 0 && board[newY][newX])
+					) {
+						return false
 					}
 				}
 			}
-			return true
-		},
-		[]
-	)
+		}
+		return true
+	}, [])
 
 	const rotatePiece = useCallback((piece: Piece): number[][] => {
-			const rotated = piece.shape[0].map((_, index) =>
-				piece.shape.map(row => row[index]).reverse()
-			)
-			return rotated
-		}, [])
+		const rotated = piece.shape[0].map((_, index) => piece.shape.map(row => row[index]).reverse())
+		return rotated
+	}, [])
 
 	const movePiece = useCallback(
 		(dx: number, dy: number) => {
@@ -157,8 +190,13 @@ export const TetrisGame = () => {
 	const dropPiece = useCallback(() => {
 		if (!currentPiece || gameOver || isPaused) return
 
-		let newPiece = { ...currentPiece }
-		while (isValidMove({ ...newPiece, position: { ...newPiece.position, y: newPiece.position.y + 1 } }, board)) {
+		const newPiece = { ...currentPiece }
+		while (
+			isValidMove(
+				{ ...newPiece, position: { ...newPiece.position, y: newPiece.position.y + 1 } },
+				board
+			)
+		) {
 			newPiece.position.y++
 		}
 		setCurrentPiece(newPiece)
@@ -166,7 +204,11 @@ export const TetrisGame = () => {
 	}, [currentPiece, board, gameOver, isPaused, isValidMove, movePiece])
 
 	const startGame = useCallback(() => {
-		setBoard(Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill("")))
+		setBoard(
+			Array(BOARD_HEIGHT)
+				.fill(null)
+				.map(() => Array(BOARD_WIDTH).fill(""))
+		)
 		setScore(0)
 		setLines(0)
 		setLevel(1)
@@ -184,9 +226,12 @@ export const TetrisGame = () => {
 	// Game loop
 	useEffect(() => {
 		if (isStarted && !gameOver && !isPaused) {
-			gameLoopRef.current = setInterval(() => {
-				movePiece(0, 1)
-			}, Math.max(100, INITIAL_SPEED - (level - 1) * SPEED_INCREASE))
+			gameLoopRef.current = setInterval(
+				() => {
+					movePiece(0, 1)
+				},
+				Math.max(100, INITIAL_SPEED - (level - 1) * SPEED_INCREASE)
+			)
 		} else {
 			if (gameLoopRef.current) {
 				clearInterval(gameLoopRef.current)
@@ -271,9 +316,7 @@ export const TetrisGame = () => {
 							row.map((cell, x) => (
 								<div
 									key={`${y}-${x}`}
-									className={`w-6 h-6 border border-gray-600 ${
-										cell || "bg-gray-900"
-									}`}
+									className={`w-6 h-6 border border-gray-600 ${cell || "bg-gray-900"}`}
 								/>
 							))
 						)}

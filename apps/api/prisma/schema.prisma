@@ -16,12 +16,20 @@ datasource db {
 // }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique
-  passwordHash String
-  posts        Post[]
-  comments     Comment[]
+  id            Int            @id @default(autoincrement())
+  username      String         @unique
+  passwordHash  String
+  role          String         @default("USER")
+  createdAt     DateTime       @default(now())
+  posts         Post[]
+  comments      Comment[]
+  refreshTokens RefreshToken[]
 }
+
+// enum Role {
+//   USER
+//   ADMIN
+// }
 
 model Post {
   id        Int       @id @default(autoincrement())
@@ -41,4 +49,19 @@ model Comment {
   authorId  Int
   author    User     @relation(fields: [authorId], references: [id])
   createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  jti       String?  @unique // JWT ID for Token Replay Attack prevention (nullable for migration)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([jti])
+  @@index([userId, expiresAt]) // Composite index for cleanup queries
 }

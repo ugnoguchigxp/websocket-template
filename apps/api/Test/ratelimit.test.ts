@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeAll, beforeEach, vi, afterEach } from 'vitest';
-import { mockEnv } from './helpers/test-utils.js';
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { mockEnv } from "./helpers/test-utils.js";
 
-describe('Rate Limiting Tests', () => {
+describe("Rate Limiting Tests", () => {
 	beforeAll(() => {
 		mockEnv({
-			RATE_LIMIT_TOKENS: '5', // テスト用に少ない値
-			RATE_LIMIT_INTERVAL_MS: '1000', // 1秒
-			LOGIN_RATE_LIMIT_MAX: '3', // テスト用に少ない値
-			LOGIN_RATE_LIMIT_WINDOW_MS: '2000', // 2秒
+			RATE_LIMIT_TOKENS: "5", // テスト用に少ない値
+			RATE_LIMIT_INTERVAL_MS: "1000", // 1秒
+			LOGIN_RATE_LIMIT_MAX: "3", // テスト用に少ない値
+			LOGIN_RATE_LIMIT_WINDOW_MS: "2000", // 2秒
 		});
 		vi.useFakeTimers();
 	});
@@ -16,7 +16,7 @@ describe('Rate Limiting Tests', () => {
 		vi.clearAllTimers();
 	});
 
-	describe('Token Bucket Rate Limiter', () => {
+	describe("Token Bucket Rate Limiter", () => {
 		// routers/index.ts のレート制限ロジックをシミュレート
 		function createTokenBucket(tokens: number, intervalMs: number) {
 			const buckets = new Map<string, { tokens: number; lastRefill: number }>();
@@ -42,9 +42,9 @@ describe('Rate Limiting Tests', () => {
 			};
 		}
 
-		it('should allow requests within limit', () => {
+		it("should allow requests within limit", () => {
 			const allowRequest = createTokenBucket(5, 1000);
-			const key = 'test-user';
+			const key = "test-user";
 
 			// 5リクエストまで許可
 			expect(allowRequest(key)).toBe(true);
@@ -54,9 +54,9 @@ describe('Rate Limiting Tests', () => {
 			expect(allowRequest(key)).toBe(true);
 		});
 
-		it('should reject requests over limit', () => {
+		it("should reject requests over limit", () => {
 			const allowRequest = createTokenBucket(3, 1000);
-			const key = 'test-user';
+			const key = "test-user";
 
 			// 3リクエストまで許可
 			expect(allowRequest(key)).toBe(true);
@@ -68,9 +68,9 @@ describe('Rate Limiting Tests', () => {
 			expect(allowRequest(key)).toBe(false);
 		});
 
-		it('should refill tokens after interval', () => {
+		it("should refill tokens after interval", () => {
 			const allowRequest = createTokenBucket(3, 1000);
-			const key = 'test-user';
+			const key = "test-user";
 
 			// トークンを使い切る
 			expect(allowRequest(key)).toBe(true);
@@ -87,25 +87,25 @@ describe('Rate Limiting Tests', () => {
 			expect(allowRequest(key)).toBe(true);
 		});
 
-		it('should handle multiple users independently', () => {
+		it("should handle multiple users independently", () => {
 			const allowRequest = createTokenBucket(2, 1000);
 
 			// ユーザー1: 2リクエスト
-			expect(allowRequest('user1')).toBe(true);
-			expect(allowRequest('user1')).toBe(true);
-			expect(allowRequest('user1')).toBe(false); // 制限
+			expect(allowRequest("user1")).toBe(true);
+			expect(allowRequest("user1")).toBe(true);
+			expect(allowRequest("user1")).toBe(false); // 制限
 
 			// ユーザー2: 独立して2リクエスト許可
-			expect(allowRequest('user2')).toBe(true);
-			expect(allowRequest('user2')).toBe(true);
-			expect(allowRequest('user2')).toBe(false); // 制限
+			expect(allowRequest("user2")).toBe(true);
+			expect(allowRequest("user2")).toBe(true);
+			expect(allowRequest("user2")).toBe(false); // 制限
 		});
 
-		it('should handle anonymous users', () => {
+		it("should handle anonymous users", () => {
 			const allowRequest = createTokenBucket(5, 1000);
 
 			// 匿名ユーザーは 'anon' キーで管理
-			const anonKey = 'anon';
+			const anonKey = "anon";
 
 			for (let i = 0; i < 5; i++) {
 				expect(allowRequest(anonKey)).toBe(true);
@@ -116,7 +116,7 @@ describe('Rate Limiting Tests', () => {
 		});
 	});
 
-	describe('Login Rate Limiter', () => {
+	describe("Login Rate Limiter", () => {
 		// routers/index.ts のログインレート制限をシミュレート
 		function createLoginRateLimiter(maxAttempts: number, windowMs: number) {
 			const attempts = new Map<string, { count: number; firstAt: number }>();
@@ -141,18 +141,18 @@ describe('Rate Limiting Tests', () => {
 			};
 		}
 
-		it('should allow login attempts within limit', () => {
+		it("should allow login attempts within limit", () => {
 			const limiter = createLoginRateLimiter(3, 2000);
-			const username = 'testuser';
+			const username = "testuser";
 
 			expect(limiter.allow(username)).toBe(true);
 			expect(limiter.allow(username)).toBe(true);
 			expect(limiter.allow(username)).toBe(true);
 		});
 
-		it('should reject login attempts over limit', () => {
+		it("should reject login attempts over limit", () => {
 			const limiter = createLoginRateLimiter(3, 2000);
-			const username = 'testuser';
+			const username = "testuser";
 
 			// 3回まで許可
 			expect(limiter.allow(username)).toBe(true);
@@ -164,9 +164,9 @@ describe('Rate Limiting Tests', () => {
 			expect(limiter.allow(username)).toBe(false);
 		});
 
-		it('should reset after time window', () => {
+		it("should reset after time window", () => {
 			const limiter = createLoginRateLimiter(3, 2000);
-			const username = 'testuser';
+			const username = "testuser";
 
 			// 制限まで試行
 			limiter.allow(username);
@@ -181,9 +181,9 @@ describe('Rate Limiting Tests', () => {
 			expect(limiter.allow(username)).toBe(true);
 		});
 
-		it('should reset on successful login', () => {
+		it("should reset on successful login", () => {
 			const limiter = createLoginRateLimiter(3, 2000);
-			const username = 'testuser';
+			const username = "testuser";
 
 			// 2回失敗
 			limiter.allow(username);
@@ -198,22 +198,22 @@ describe('Rate Limiting Tests', () => {
 			expect(limiter.allow(username)).toBe(true);
 		});
 
-		it('should handle multiple users independently', () => {
+		it("should handle multiple users independently", () => {
 			const limiter = createLoginRateLimiter(2, 2000);
 
 			// ユーザー1: 制限まで
-			limiter.allow('user1');
-			limiter.allow('user1');
-			expect(limiter.allow('user1')).toBe(false);
+			limiter.allow("user1");
+			limiter.allow("user1");
+			expect(limiter.allow("user1")).toBe(false);
 
 			// ユーザー2: 独立して許可
-			expect(limiter.allow('user2')).toBe(true);
-			expect(limiter.allow('user2')).toBe(true);
+			expect(limiter.allow("user2")).toBe(true);
+			expect(limiter.allow("user2")).toBe(true);
 		});
 	});
 
-	describe('Memory Leak Prevention', () => {
-		it('should clean up old entries', () => {
+	describe("Memory Leak Prevention", () => {
+		it("should clean up old entries", () => {
 			const loginAttempts = new Map<string, { count: number; firstAt: number }>();
 			const buckets = new Map<string, { tokens: number; lastRefill: number }>();
 
@@ -221,10 +221,10 @@ describe('Rate Limiting Tests', () => {
 			const BUCKET_MAX_AGE = 3600000; // 1 hour
 
 			// エントリを追加
-			loginAttempts.set('user1', { count: 1, firstAt: Date.now() });
-			loginAttempts.set('user2', { count: 1, firstAt: Date.now() - 3000 }); // 古いエントリ
-			buckets.set('user1', { tokens: 5, lastRefill: Date.now() });
-			buckets.set('user2', { tokens: 5, lastRefill: Date.now() - 4000000 }); // 古いエントリ
+			loginAttempts.set("user1", { count: 1, firstAt: Date.now() });
+			loginAttempts.set("user2", { count: 1, firstAt: Date.now() - 3000 }); // 古いエントリ
+			buckets.set("user1", { tokens: 5, lastRefill: Date.now() });
+			buckets.set("user2", { tokens: 5, lastRefill: Date.now() - 4000000 }); // 古いエントリ
 
 			expect(loginAttempts.size).toBe(2);
 			expect(buckets.size).toBe(2);
@@ -247,13 +247,13 @@ describe('Rate Limiting Tests', () => {
 			}
 
 			// user2が削除されているはず
-			expect(loginAttempts.has('user1')).toBe(true);
-			expect(loginAttempts.has('user2')).toBe(false);
-			expect(buckets.has('user1')).toBe(true);
-			expect(buckets.has('user2')).toBe(false);
+			expect(loginAttempts.has("user1")).toBe(true);
+			expect(loginAttempts.has("user2")).toBe(false);
+			expect(buckets.has("user1")).toBe(true);
+			expect(buckets.has("user2")).toBe(false);
 		});
 
-		it('should run periodic cleanup', () => {
+		it("should run periodic cleanup", () => {
 			const cleanupInterval = 5 * 60 * 1000; // 5分
 			let cleanupCalled = 0;
 
@@ -276,12 +276,18 @@ describe('Rate Limiting Tests', () => {
 		});
 	});
 
-	describe('Rate Limit Configuration', () => {
-		it('should use environment variables for configuration', () => {
-			const RATE_LIMIT_TOKENS = parseInt(process.env.RATE_LIMIT_TOKENS || '60', 10);
-			const RATE_LIMIT_INTERVAL_MS = parseInt(process.env.RATE_LIMIT_INTERVAL_MS || '60000', 10);
-			const LOGIN_RATE_LIMIT_MAX = parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10);
-			const LOGIN_RATE_LIMIT_WINDOW_MS = parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || '900000', 10);
+	describe("Rate Limit Configuration", () => {
+		it("should use environment variables for configuration", () => {
+			const RATE_LIMIT_TOKENS = Number.parseInt(process.env.RATE_LIMIT_TOKENS || "60", 10);
+			const RATE_LIMIT_INTERVAL_MS = Number.parseInt(
+				process.env.RATE_LIMIT_INTERVAL_MS || "60000",
+				10
+			);
+			const LOGIN_RATE_LIMIT_MAX = Number.parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "10", 10);
+			const LOGIN_RATE_LIMIT_WINDOW_MS = Number.parseInt(
+				process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000",
+				10
+			);
 
 			// テスト用の設定値を確認
 			expect(RATE_LIMIT_TOKENS).toBe(5);
@@ -290,7 +296,7 @@ describe('Rate Limiting Tests', () => {
 			expect(LOGIN_RATE_LIMIT_WINDOW_MS).toBe(2000);
 		});
 
-		it('should use default values when env vars not set', () => {
+		it("should use default values when env vars not set", () => {
 			// 環境変数が設定されていない場合のデフォルト値
 			const defaults = {
 				RATE_LIMIT_TOKENS: 60,
@@ -301,21 +307,21 @@ describe('Rate Limiting Tests', () => {
 
 			// パース関数のテスト
 			const parseWithDefault = (value: string | undefined, defaultValue: number) => {
-				return parseInt(value || String(defaultValue), 10);
+				return Number.parseInt(value || String(defaultValue), 10);
 			};
 
 			expect(parseWithDefault(undefined, defaults.RATE_LIMIT_TOKENS)).toBe(60);
-			expect(parseWithDefault('', defaults.RATE_LIMIT_INTERVAL_MS)).toBe(60000);
+			expect(parseWithDefault("", defaults.RATE_LIMIT_INTERVAL_MS)).toBe(60000);
 		});
 	});
 
-	describe('Uniform Delay for Login', () => {
-		it('should define 300ms delay constant', () => {
+	describe("Uniform Delay for Login", () => {
+		it("should define 300ms delay constant", () => {
 			const UNIFORM_DELAY = 300;
 			expect(UNIFORM_DELAY).toBe(300);
 		});
 
-		it('should apply consistent delay for timing attack prevention', () => {
+		it("should apply consistent delay for timing attack prevention", () => {
 			// タイミング攻撃防止のため、
 			// 成功・失敗に関わらず同じ遅延を適用する必要がある
 			const UNIFORM_DELAY = 300;
@@ -327,7 +333,7 @@ describe('Rate Limiting Tests', () => {
 
 			// 遅延関数が定義されていることを確認
 			expect(applyUniformDelay).toBeDefined();
-			expect(typeof applyUniformDelay).toBe('function');
+			expect(typeof applyUniformDelay).toBe("function");
 		});
 	});
 });

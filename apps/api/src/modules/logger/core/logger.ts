@@ -74,12 +74,21 @@ class BackendLogger implements ILogger {
 		if (!this.shouldLog(LogLevel.DEBUG)) return;
 
 		const formattedMessage = formatMessage("debug", message);
-		if (meta !== undefined && Object.keys(meta).length > 0) {
-			// eslint-disable-next-line no-console
-			console.debug(formattedMessage, "\n", safeStringify(meta));
-		} else {
+		if (meta === undefined) {
 			// eslint-disable-next-line no-console
 			console.debug(formattedMessage);
+		} else if (typeof meta === "object" && meta !== null) {
+			if (Object.keys(meta).length > 0) {
+				// eslint-disable-next-line no-console
+				console.debug(formattedMessage, "\n", safeStringify(meta));
+			} else {
+				// eslint-disable-next-line no-console
+				console.debug(formattedMessage, "{}");
+			}
+		} else {
+			// null, primitive values
+			// eslint-disable-next-line no-console
+			console.debug(formattedMessage, meta);
 		}
 	}
 
@@ -87,12 +96,21 @@ class BackendLogger implements ILogger {
 		if (!this.shouldLog(LogLevel.INFO)) return;
 
 		const formattedMessage = formatMessage("info", message);
-		if (meta !== undefined && Object.keys(meta).length > 0) {
-			// eslint-disable-next-line no-console
-			console.info(formattedMessage, "\n", safeStringify(meta));
-		} else {
+		if (meta === undefined) {
 			// eslint-disable-next-line no-console
 			console.info(formattedMessage);
+		} else if (typeof meta === "object" && meta !== null) {
+			if (Object.keys(meta).length > 0) {
+				// eslint-disable-next-line no-console
+				console.info(formattedMessage, "\n", safeStringify(meta));
+			} else {
+				// eslint-disable-next-line no-console
+				console.info(formattedMessage, "{}");
+			}
+		} else {
+			// null, primitive values
+			// eslint-disable-next-line no-console
+			console.info(formattedMessage, meta);
 		}
 	}
 
@@ -100,12 +118,21 @@ class BackendLogger implements ILogger {
 		if (!this.shouldLog(LogLevel.WARN)) return;
 
 		const formattedMessage = formatMessage("warn", message);
-		if (meta !== undefined && Object.keys(meta).length > 0) {
-			// eslint-disable-next-line no-console
-			console.warn(formattedMessage, "\n", safeStringify(meta));
-		} else {
+		if (meta === undefined) {
 			// eslint-disable-next-line no-console
 			console.warn(formattedMessage);
+		} else if (typeof meta === "object" && meta !== null) {
+			if (Object.keys(meta).length > 0) {
+				// eslint-disable-next-line no-console
+				console.warn(formattedMessage, "\n", safeStringify(meta));
+			} else {
+				// eslint-disable-next-line no-console
+				console.warn(formattedMessage, "{}");
+			}
+		} else {
+			// null, primitive values
+			// eslint-disable-next-line no-console
+			console.warn(formattedMessage, meta);
 		}
 	}
 

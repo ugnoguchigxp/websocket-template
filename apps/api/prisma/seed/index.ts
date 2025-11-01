@@ -44,13 +44,13 @@ CREATE TABLE IF NOT EXISTS comments (
 async function seedDatabase() {
 	try {
 		console.log("🌱 Starting database seeding...");
-		
+
 		// Clear existing data (optional - comment out if you want to preserve data)
 		console.log("🗑️  Clearing existing data...");
 		db.exec("DELETE FROM comments");
 		db.exec("DELETE FROM posts");
 		db.exec("DELETE FROM users");
-		
+
 		// Seed admin user
 		console.log("👤 Seeding admin user...");
 		const adminPasswordHash = await argon2.hash("websocket3001");
@@ -59,15 +59,24 @@ async function seedDatabase() {
 			.run("admin", adminPasswordHash);
 		const adminId = adminResult.lastInsertRowid as number;
 		console.log("✅ Admin user created", { id: adminId, username: "admin" });
-		
+
 		// Seed demo posts
 		console.log("📝 Seeding demo posts...");
 		const posts = [
-			{ title: "WebSocketフレームワークへようこそ", body: "これは最初の投稿です。WebSocketフレームワークの機能を試してみましょう。" },
-			{ title: "リアルタイム通信のデモ", body: "WebSocketを使用したリアルタイム通信のデモンストレーションです。" },
-			{ title: "技術スタックについて", body: "このプロジェクトはTypeScript、tRPC、Prisma、WebSocketを使用して構築されています。" }
+			{
+				title: "WebSocketフレームワークへようこそ",
+				body: "これは最初の投稿です。WebSocketフレームワークの機能を試してみましょう。",
+			},
+			{
+				title: "リアルタイム通信のデモ",
+				body: "WebSocketを使用したリアルタイム通信のデモンストレーションです。",
+			},
+			{
+				title: "技術スタックについて",
+				body: "このプロジェクトはTypeScript、tRPC、Prisma、WebSocketを使用して構築されています。",
+			},
 		];
-		
+
 		const postIds: number[] = [];
 		for (const post of posts) {
 			const result = db
@@ -76,7 +85,7 @@ async function seedDatabase() {
 			postIds.push(result.lastInsertRowid as number);
 		}
 		console.log("✅ Demo posts created", { count: postIds.length });
-		
+
 		// Seed demo comments
 		console.log("💬 Seeding demo comments...");
 		const comments = [
@@ -84,27 +93,31 @@ async function seedDatabase() {
 			{ body: "WebSocketの動作が非常にスムーズです。", postId: postIds[1] },
 			{ body: "技術選定について詳しく教えていただけますか？", postId: postIds[2] },
 			{ body: "リアルタイム更新の機能が特に気に入りました。", postId: postIds[1] },
-			{ body: "ありがとうございます。今後の機能追加も楽しみです！", postId: postIds[0] }
+			{ body: "ありがとうございます。今後の機能追加も楽しみです！", postId: postIds[0] },
 		];
-		
+
 		for (const comment of comments) {
-			db
-				.prepare("INSERT INTO comments (body, postId, authorId) VALUES (?, ?, ?)")
-				.run(comment.body, comment.postId, adminId);
+			db.prepare("INSERT INTO comments (body, postId, authorId) VALUES (?, ?, ?)").run(
+				comment.body,
+				comment.postId,
+				adminId
+			);
 		}
 		console.log("✅ Demo comments created", { count: comments.length });
-		
+
 		// Display seeded data summary
 		const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
 		const postCount = db.prepare("SELECT COUNT(*) as count FROM posts").get() as { count: number };
-		const commentCount = db.prepare("SELECT COUNT(*) as count FROM comments").get() as { count: number };
-		
+		const commentCount = db.prepare("SELECT COUNT(*) as count FROM comments").get() as {
+			count: number;
+		};
+
 		console.log("🎉 Database seeding completed successfully", {
 			users: userCount.count,
 			posts: postCount.count,
-			comments: commentCount.count
+			comments: commentCount.count,
 		});
-		
+
 		console.log("\n✅ データベースのシードが完了しました！");
 		console.log("📊 作成されたデータ:");
 		console.log(`   👤 ユーザー: ${userCount.count}件`);
@@ -113,7 +126,6 @@ async function seedDatabase() {
 		console.log("\n🔐 ログイン情報:");
 		console.log("   ユーザー名: admin");
 		console.log("   パスワード: websocket3001");
-		
 	} catch (error) {
 		console.error("❌ Database seeding failed:", error);
 		console.error("❌ データベースのシードに失敗しました:", error);

@@ -117,7 +117,7 @@ describe("NotificationContext", () => {
 					>
 						Add Toast
 					</button>
-					<div data-testid="toast-count">{context.toasts.length}</div>
+					<div data-testid="toast-count">context.toasts.length</div>
 				</div>
 			)
 		}
@@ -139,7 +139,7 @@ describe("NotificationContext", () => {
 					>
 						Clear All
 					</button>
-					<div data-testid="toast-count">{context.toasts.length}</div>
+					<div data-testid="toast-count">context.toasts.length</div>
 				</div>
 			)
 		}
@@ -157,9 +157,8 @@ describe("NotificationContext", () => {
 							if (
 								"toggleNotificationCenter" in context &&
 								typeof context.toggleNotificationCenter === "function"
-							) {
+							) 
 								context.toggleNotificationCenter()
-							}
 						}}
 					>
 						Toggle Center

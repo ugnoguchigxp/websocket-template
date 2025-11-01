@@ -1,8 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient, type QueryClientProvider } from "@tanstack/react-query"
 import { render } from "@testing-library/react"
 import React from "react"
-import { BrowserRouter } from "react-router-dom"
-import { NotificationProvider } from "../src/contexts/NotificationContext"
+import type { BrowserRouter } from "react-router-dom"
+import type { NotificationProvider } from "../src/contexts/NotificationContext"
 /**
  * Create a fresh QueryClient for each test to avoid state pollution
  */

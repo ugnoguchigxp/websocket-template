@@ -1,4 +1,4 @@
-import { menuData } from "@/constants/menu"
+import { getMenuData } from "@/constants/menu"
 import { useAuth } from "@/contexts/AuthContext"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import React, { useState, useEffect } from "react"
@@ -15,6 +15,8 @@ import Tooltip from "../ui/Tooltip"
 const Layout = () => {
 	const { t } = useTranslation()
 	const { logout } = useAuth()
+	const { isAdmin } = useAuth()
+	const menuData = getMenuData()
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 	const isMobile = useIsMobile()
@@ -106,33 +108,24 @@ const Layout = () => {
 				</Drawer>
 			</nav>
 			<div className="flex w-full">
-				{!isMobile && isTreeMenuOpen && (
+				{!isMobile && (
 					<div
 						className="relative h-full bg-white transition-all duration-300 ease-in-out flex-shrink-0 overflow-hidden"
 						style={{
-							width: "16.6667%",
-							minWidth: "12rem",
-							maxWidth: "400px",
+							width: isTreeMenuOpen ? "16.6667%" : "0",
+							minWidth: isTreeMenuOpen ? "12rem" : "0",
+							maxWidth: isTreeMenuOpen ? "400px" : "0",
 							transition:
 								"width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1)",
-							pointerEvents: isTreeMenuOpen ? "auto" : "none",
 						}}
 						aria-hidden={!isTreeMenuOpen}
 					>
-						<div
-							className="w-full h-full transition-transform duration-300 ease-in-out"
-							style={{
-								transform: isTreeMenuOpen ? "translateX(0)" : "translateX(-100%)",
-								transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
-							}}
-						>
-							<TreeMenu
-								menuData={menuData}
-								onSelect={() => {}}
-								showCloseButton={true}
-								onCloseMenu={() => setIsTreeMenuOpen(false)}
-							/>
-						</div>
+						<TreeMenu
+							menuData={menuData}
+							onSelect={() => {}}
+							showCloseButton={true}
+							onCloseMenu={() => setIsTreeMenuOpen(false)}
+						/>
 					</div>
 				)}
 				<main className={`p-2 transition-all duration-300 flex-1 ${isMobile ? "w-full" : ""}`}>

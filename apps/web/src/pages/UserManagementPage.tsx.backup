@@ -1,21 +1,15 @@
 import { createContextLogger } from "@logger"
-import type { ColumnDef } from "@tanstack/react-table"
 import React, { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { FiEdit, FiTrash2 } from "react-icons/fi"
-import { useNavigate } from "react-router-dom"
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  ColumnDef,
+} from "@tanstack/react-table"
 import { Button } from "../components/ui/Button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/Dialog"
 import { Input } from "../components/ui/Input"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "../components/ui/Select"
-import { Table } from "../components/ui/Table"
-import { useAuth } from "../contexts/AuthContext"
 import { useNotificationContext } from "../contexts/NotificationContext"
 import i18n from "../i18n"
 import { api } from "../trpc"
@@ -24,39 +18,35 @@ const log = createContextLogger("UserManagementPage")
 
 export function UserManagementPage() {
 	const { t } = useTranslation()
-	const { isAdmin } = useAuth()
-	const navigate = useNavigate()
 	const { showSuccess, showError } = useNotificationContext()
-
-	// Check admin access
-	if (!isAdmin) {
-		navigate("/")
-		return null
-	}
-
+	
 	// Users list
-	const users = api.users.list.useQuery({}, { staleTime: 60_000, refetchOnWindowFocus: false })
-
+	const users = api.users.list.useQuery(
+		{},
+		{ staleTime: 60_000, refetchOnWindowFocus: false }
+	)
+	
 	// Current user info
-	const currentUser = api.auth.me.useQuery({}, { staleTime: 60_000, refetchOnWindowFocus: false })
-
+	const currentUser = api.auth.me.useQuery(
+		{},
+		{ staleTime: 60_000, refetchOnWindowFocus: false }
+	)
+	
 	// Dialog states
 	const [createOpen, setCreateOpen] = useState(false)
 	const [editOpen, setEditOpen] = useState(false)
 	const [deleteOpen, setDeleteOpen] = useState(false)
 	const [selectedUser, setSelectedUser] = useState<any>(null)
-
+	
 	// Form states
 	const [username, setUsername] = useState("")
 	const [password, setPassword] = useState("")
-	const [role, setRole] = useState("USER")
-
+	
 	// Mutations
 	const createUser = api.users.create.useMutation({
 		onSuccess: () => {
 			setUsername("")
 			setPassword("")
-			setRole("USER")
 			setCreateOpen(false)
 			users.refetch()
 			showSuccess(t("user_created"), t("user_created_desc"))
@@ -67,12 +57,11 @@ export function UserManagementPage() {
 			log.error("Failed to create user", e)
 		},
 	})
-
+	
 	const updateUser = api.users.update.useMutation({
 		onSuccess: () => {
 			setUsername("")
 			setPassword("")
-			setRole("USER")
 			setEditOpen(false)
 			setSelectedUser(null)
 			users.refetch()
@@ -84,7 +73,7 @@ export function UserManagementPage() {
 			log.error("Failed to update user", e)
 		},
 	})
-
+	
 	const deleteUser = api.users.delete.useMutation({
 		onSuccess: () => {
 			setDeleteOpen(false)
@@ -98,123 +87,40 @@ export function UserManagementPage() {
 			log.error("Failed to delete user", e)
 		},
 	})
-
-	// Helper function to check if user role is admin
-	const isUserRoleAdmin = (userRole: string) => userRole === "ADMIN"
-
-	// Helper function to format date
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleString()
-	}
-
-	// Event handlers
-	const handleEdit = (user: any) => {
-		setSelectedUser(user)
-		setUsername(user.username)
+	
 		setPassword("")
-		setRole(user.role)
 		setEditOpen(true)
 	}
-
+	
 	const handleDelete = (user: any) => {
-		if (isUserRoleAdmin(user.role)) {
+		if (isAdmin(user.username)) {
 			showError(t("user_failed"), t("cannot_delete_admin"))
 			return
 		}
 		setSelectedUser(user)
 		setDeleteOpen(true)
 	}
-
+	
 	const handleCreateUser = () => {
-		createUser.mutate({ username, password, role })
+		createUser.mutate({ username, password })
 	}
-
+	
 	const handleUpdateUser = () => {
 		if (selectedUser) {
-			updateUser.mutate({
-				id: selectedUser.id,
-				username,
-				password: password || undefined,
-				role,
+			updateUser.mutate({ 
+				id: selectedUser.id, 
+				username, 
+				password: password || undefined 
 			})
 		}
 	}
-
+	
 	const handleDeleteUser = () => {
 		if (selectedUser) {
 			deleteUser.mutate({ id: selectedUser.id })
 		}
 	}
-
-	// Table columns
-	const columns = useMemo<ColumnDef<any>[]>(
-		() => [
-			{
-				accessorKey: "id",
-				header: () => <span className="font-mono">{t("id")}</span>,
-				cell: info => <span className="font-mono text-gray-600">{info.getValue()}</span>,
-			},
-			{
-				accessorKey: "username",
-				header: () => <span className="font-mono">{t("username")}</span>,
-				cell: info => (
-					<span className="font-mono font-bold" data-testid="user-username">
-						{info.getValue()}
-					</span>
-				),
-			},
-			{
-				accessorKey: "role",
-				header: () => <span className="font-mono">{t("role")}</span>,
-				cell: info => (
-					<span
-						className={`font-mono font-bold ${info.getValue() === "ADMIN" ? "text-red-600" : "text-gray-600"}`}
-					>
-						{info.getValue()}
-					</span>
-				),
-			},
-			{
-				accessorKey: "createdAt",
-				header: () => <span className="font-mono">{t("created_at")}</span>,
-				cell: info => (
-					<span className="font-mono text-gray-600">{formatDate(info.getValue())}</span>
-				),
-			},
-			{
-				id: "actions",
-				header: () => <span className="font-mono">{t("actions")}</span>,
-				cell: info => {
-					const user = info.row.original
-					return (
-						<div className="flex gap-2">
-							<Button
-								variant="default"
-								size="sm"
-								onClick={() => handleEdit(user)}
-								className="font-mono bg-gray-700 hover:bg-gray-800 text-white"
-								data-testid="edit-user-button"
-							>
-								<FiEdit className="w-4 h-4" />
-							</Button>
-							<Button
-								variant="destructive"
-								size="sm"
-								onClick={() => handleDelete(user)}
-								className="font-mono"
-								disabled={isUserRoleAdmin(user.role)}
-								data-testid="delete-user-button"
-							>
-								<FiTrash2 className="w-4 h-4" />
-							</Button>
-						</div>
-					)
-				},
-			},
-		],
-		[t, handleEdit, handleDelete, isUserRoleAdmin]
-	)
-
+	
 	return (
 		<div className="bg-gray-100 min-h-full">
 			<main className="max-w-6xl mx-auto px-4 py-6">
@@ -227,21 +133,23 @@ export function UserManagementPage() {
 				</div>
 
 				{/* Users List */}
-				<Table
-					data={users.data ?? []}
-					columns={columns}
-					loading={users.isLoading}
-					emptyMessage={t("no_users")}
-					enableSelection={true}
-					enableSorting={true}
-					enablePagination={true}
-					enableFiltering={true}
-					pageSize={10}
-					data-testid="user-list"
-				/>
-			</main>
+				<div className="bg-white border border-gray-400" data-testid="user-list">
+					<div className="bg-gray-200 border-b border-gray-400 px-4 py-2">
+						<h2 className="font-bold font-mono">{t("users")}</h2>
+					</div>
+					<div className="divide-y divide-gray-300">
+						{users.isLoading ? (
+							<div className="px-4 py-8 text-center font-mono text-gray-500">{t("loading")}</div>
+						) : users.data?.length ? (
+							<table className="w-full font-mono text-sm">
+								<thead className="bg-gray-100">
+									<tr className="border-b border-gray-300">
 
-			{/* Create User Dialog */}
+  // Current user info
+  const currentUser = api.auth.me.useQuery(
+    {},
+    { staleTime: 60_000, refetchOnWindowFocus: false }
+  )
 			<Dialog open={createOpen} onOpenChange={setCreateOpen}>
 				<DialogContent>
 					<DialogHeader>
@@ -276,24 +184,6 @@ export function UserManagementPage() {
 								name="password"
 								data-testid="create-password-input"
 							/>
-						</div>
-						<div>
-							<label htmlFor="create-role" className="font-mono text-sm font-bold">
-								{t("role")}
-							</label>
-							<Select value={role} onValueChange={setRole}>
-								<SelectTrigger className="font-mono">
-									<SelectValue placeholder={t("select_role")} />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="USER" className="font-mono">
-										USER
-									</SelectItem>
-									<SelectItem value="ADMIN" className="font-mono">
-										ADMIN
-									</SelectItem>
-								</SelectContent>
-							</Select>
 						</div>
 						<div className="flex justify-end gap-2">
 							<Button variant="outline" onClick={() => setCreateOpen(false)} className="font-mono">
@@ -335,36 +225,18 @@ export function UserManagementPage() {
 						</div>
 						<div>
 							<label htmlFor="edit-password" className="font-mono text-sm font-bold">
-								{t("password")}
+								{t("password")} ({t("optional")})
 							</label>
 							<Input
 								id="edit-password"
 								type="password"
-								placeholder={t("password_placeholder")}
+								placeholder={t("leave_empty_to_keep_current")}
 								value={password}
 								onChange={e => setPassword(e.target.value)}
 								className="font-mono"
 								name="password"
 								data-testid="edit-password-input"
 							/>
-						</div>
-						<div>
-							<label htmlFor="edit-role" className="font-mono text-sm font-bold">
-								{t("role")}
-							</label>
-							<Select value={role} onValueChange={setRole}>
-								<SelectTrigger className="font-mono">
-									<SelectValue placeholder={t("select_role")} />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="USER" className="font-mono">
-										USER
-									</SelectItem>
-									<SelectItem value="ADMIN" className="font-mono">
-										ADMIN
-									</SelectItem>
-								</SelectContent>
-							</Select>
 						</div>
 						<div className="flex justify-end gap-2">
 							<Button variant="outline" onClick={() => setEditOpen(false)} className="font-mono">
@@ -391,18 +263,18 @@ export function UserManagementPage() {
 					</DialogHeader>
 					<div className="space-y-3">
 						<p className="font-mono">
-							{t("delete_user_confirm", { username: selectedUser?.username })}
+							{t("confirm_delete_user", { username: selectedUser?.username })}
 						</p>
 						<div className="flex justify-end gap-2">
 							<Button variant="outline" onClick={() => setDeleteOpen(false)} className="font-mono">
 								{t("cancel")}
 							</Button>
 							<Button
-								variant="destructive"
 								onClick={handleDeleteUser}
 								disabled={deleteUser.isPending}
+								variant="destructive"
 								className="font-mono"
-								data-testid="delete-user-confirm-button"
+								data-testid="confirm-delete-user-button"
 							>
 								{t("delete")}
 							</Button>

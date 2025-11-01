@@ -1,4 +1,5 @@
-import React, { useEffect } from "react"
+import type React from "react"
+import { useEffect } from "react"
 
 interface DrawerProps {
 	isOpen: boolean
@@ -18,7 +19,7 @@ const Drawer = ({
 	noPadding = false,
 }: DrawerProps) => {
 	const drawerPositionClass = position === "left" ? "-translate-x-full" : "translate-x-full"
-	
+
 	// ESC key handling
 	useEffect(() => {
 		const handleEsc = (e: KeyboardEvent) => {

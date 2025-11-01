@@ -69,5 +69,12 @@
   "user_updated_desc": "User information has been updated",
   "user_deleted": "User deleted",
   "user_deleted_desc": "User has been deleted",
-  "user_failed": "User operation failed"
+  "user_failed": "User operation failed",
+  "cannot_delete_admin": "Cannot delete admin user",
+  "search_placeholder": "Search...",
+  "no_data": "No data available",
+  "showing": "{{start}} - {{end}} of {{total}} items",
+  "previous": "Previous",
+  "next": "Next",
+  "page": "Page {{current}} of {{total}}"
 }

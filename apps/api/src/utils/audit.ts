@@ -57,7 +57,10 @@ export function createAuditMiddleware() {
 			}
 			// Wrap unknown errors
 			const { TRPCError } = await import("@trpc/server");
-			throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred" });
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "An unexpected error occurred",
+			});
 		}
 	};
 }

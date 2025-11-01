@@ -1,0 +1,205 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+describe("BackendLogger", () => {
+	let originalEnv: NodeJS.ProcessEnv;
+	let consoleDebugSpy: any;
+	let consoleInfoSpy: any;
+	let consoleWarnSpy: any;
+	let consoleErrorSpy: any;
+
+	beforeEach(() => {
+		originalEnv = { ...process.env };
+		vi.resetModules();
+
+		// Mock console methods
+		consoleDebugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+		consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+		consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		process.env = originalEnv;
+		vi.restoreAllMocks();
+	});
+
+	describe("Log Level Configuration", () => {
+		it("should use debug level in development by default", async () => {
+			process.env.NODE_ENV = "development";
+			delete process.env.LOG_LEVEL;
+
+			const { logger: devLogger } = await import("./logger.js");
+
+			devLogger.debug("test debug message");
+			expect(consoleDebugSpy).toHaveBeenCalled();
+		});
+
+		it("should use info level in production by default", async () => {
+			process.env.NODE_ENV = "production";
+			delete process.env.LOG_LEVEL;
+
+			const { logger: prodLogger } = await import("./logger.js");
+
+			prodLogger.debug("test debug message");
+			expect(consoleDebugSpy).not.toHaveBeenCalled();
+
+			prodLogger.info("test info message");
+			expect(consoleInfoSpy).toHaveBeenCalled();
+		});
+
+		it("should respect custom LOG_LEVEL", async () => {
+			process.env.LOG_LEVEL = "warn";
+
+			const { logger: warnLogger } = await import("./logger.js");
+
+			warnLogger.info("test info message");
+			expect(consoleInfoSpy).not.toHaveBeenCalled();
+
+			warnLogger.warn("test warn message");
+			expect(consoleWarnSpy).toHaveBeenCalled();
+		});
+	});
+
+	describe("Debug Logging", () => {
+		it("should log debug messages with metadata", async () => {
+			process.env.LOG_LEVEL = "debug";
+			const { logger: debugLogger } = await import("./logger.js");
+
+			debugLogger.debug("test message", { key: "value" });
+
+			expect(consoleDebugSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[DEBUG] test message"),
+				"\n",
+				expect.stringContaining('"key": "value"')
+			);
+		});
+
+		it("should log debug messages without metadata", async () => {
+			process.env.LOG_LEVEL = "debug";
+			const { logger: debugLogger } = await import("./logger.js");
+
+			debugLogger.debug("test message");
+
+			expect(consoleDebugSpy).toHaveBeenCalledWith(expect.stringContaining("[DEBUG] test message"));
+		});
+	});
+
+	describe("Info Logging", () => {
+		it("should log info messages with metadata", async () => {
+			const { logger: infoLogger } = await import("./logger.js");
+
+			infoLogger.info("test message", { key: "value" });
+
+			expect(consoleInfoSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[INFO] test message"),
+				"\n",
+				expect.stringContaining('"key": "value"')
+			);
+		});
+
+		it("should log info messages without metadata", async () => {
+			const { logger: infoLogger } = await import("./logger.js");
+
+			infoLogger.info("test message");
+
+			expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining("[INFO] test message"));
+		});
+	});
+
+	describe("Warn Logging", () => {
+		it("should log warn messages with metadata", async () => {
+			const { logger: warnLogger } = await import("./logger.js");
+
+			warnLogger.warn("test message", { key: "value" });
+
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[WARN] test message"),
+				"\n",
+				expect.stringContaining('"key": "value"')
+			);
+		});
+
+		it("should log warn messages without metadata", async () => {
+			const { logger: warnLogger } = await import("./logger.js");
+
+			warnLogger.warn("test message");
+
+			expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining("[WARN] test message"));
+		});
+	});
+
+	describe("Error Logging", () => {
+		it("should log error messages with Error instance", async () => {
+			const { logger: errorLogger } = await import("./logger.js");
+			const testError = new Error("test error");
+
+			errorLogger.error("test message", testError);
+
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[ERROR] test message"),
+				"\n",
+				testError.stack || testError.message
+			);
+		});
+
+		it("should log error messages with record metadata", async () => {
+			const { logger: errorLogger } = await import("./logger.js");
+
+			errorLogger.error("test message", { key: "value" });
+
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[ERROR] test message"),
+				"\n",
+				expect.stringContaining('"key": "value"')
+			);
+		});
+
+		it("should log error messages without metadata", async () => {
+			const { logger: errorLogger } = await import("./logger.js");
+
+			errorLogger.error("test message");
+
+			expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("[ERROR] test message"));
+		});
+	});
+
+	describe("safeStringify", () => {
+		it("should handle BigInt values", async () => {
+			process.env.LOG_LEVEL = "debug";
+			const { logger: debugLogger } = await import("./logger.js");
+
+			debugLogger.debug("test", { bigIntValue: BigInt(123) });
+
+			expect(consoleDebugSpy).toHaveBeenCalledWith(
+				expect.any(String),
+				"\n",
+				expect.stringContaining('"bigIntValue": "123"')
+			);
+		});
+
+		it("should handle Error objects in metadata", async () => {
+			process.env.LOG_LEVEL = "debug";
+			const { logger: debugLogger } = await import("./logger.js");
+			const error = new Error("test error");
+
+			debugLogger.debug("test", { error });
+
+			expect(consoleDebugSpy).toHaveBeenCalledWith(
+				expect.any(String),
+				"\n",
+				expect.stringContaining('"error": {')
+			);
+		});
+
+		it("should handle circular references gracefully", async () => {
+			process.env.LOG_LEVEL = "debug";
+			const { logger: debugLogger } = await import("./logger.js");
+			const circular: any = { key: "value" };
+			circular.self = circular;
+
+			debugLogger.debug("test", circular);
+
+			expect(consoleDebugSpy).toHaveBeenCalled();
+		});
+	});
+});

@@ -1,32 +1,32 @@
 {
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "types": ["node"],
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
-    "declaration": false,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@logger": ["src/modules/logger"],
-      "@modules/*": ["src/modules/*"],
-      "@middleware/*": ["src/middleware/*"],
-      "@routes/*": ["src/routes/*"],
-      "@routers/*": ["src/routers/*"]
-    }
-  },
-  "include": ["src"],
-  "exclude": [
-    "src/**/*.mjs",
-    "src/**/*.mts",
-    "src/**/index-*.ts",
-    "src/**/simple-*.ts",
-    "src/start.ts"
-  ]
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"types": ["node"],
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"sourceMap": true,
+		"declaration": false,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"],
+			"@logger": ["src/modules/logger"],
+			"@modules/*": ["src/modules/*"],
+			"@middleware/*": ["src/middleware/*"],
+			"@routes/*": ["src/routes/*"],
+			"@routers/*": ["src/routers/*"]
+		}
+	},
+	"include": ["src"],
+	"exclude": [
+		"src/**/*.mjs",
+		"src/**/*.mts",
+		"src/**/index-*.ts",
+		"src/**/simple-*.ts",
+		"src/start.ts"
+	]
 }

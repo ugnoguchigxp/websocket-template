@@ -29,6 +29,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-toast": "^1.2.1",
     "@tanstack/react-query": "^4.36.1",
+    "@tanstack/react-table": "^8.21.3",
     "@trpc/client": "^10.45.2",
     "@trpc/react-query": "^10.45.2",
     "@wsfw/api": "file:../api",

@@ -1,8 +1,8 @@
+import type { ReactElement } from "react"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Layout from "../../../src/components/layout/Layout"
 import { fireEvent, renderWithProviders, screen } from "../../test-utils"
-import { ReactElement } from "react"
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
@@ -51,7 +51,12 @@ vi.mock("../../../src/components/notifications/NotificationPanel", () => ({
 }))
 
 vi.mock("../../../src/components/ui/Drawer", () => ({
-	default: ({ children, isOpen, onClose, position = "right" }: {
+	default: ({
+		children,
+		isOpen,
+		onClose,
+		position = "right",
+	}: {
 		children: React.ReactNode
 		isOpen: boolean
 		onClose: () => void
@@ -83,7 +88,12 @@ vi.mock("../../../src/components/ui/Tooltip", () => ({
 }))
 
 vi.mock("../../../src/components/TreeMenu", () => ({
-	TreeMenu: ({ menuData, onSelect, showCloseButton, onCloseMenu }: {
+	TreeMenu: ({
+		menuData,
+		onSelect,
+		showCloseButton,
+		onCloseMenu,
+	}: {
 		menuData: any[]
 		onSelect: (item: any) => void
 		showCloseButton: boolean
@@ -101,7 +111,12 @@ vi.mock("../../../src/components/TreeMenu", () => ({
 }))
 
 vi.mock("../../../src/components/ui/Button", () => ({
-	Button: ({ children, onClick, variant, className }: {
+	Button: ({
+		children,
+		onClick,
+		variant,
+		className,
+	}: {
 		children: React.ReactNode
 		onClick?: () => void
 		variant?: string

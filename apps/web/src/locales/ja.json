@@ -65,9 +65,16 @@
   "confirm_delete_user": "ユーザー「{{username}}」を削除してもよろしいですか？",
   "user_created": "ユーザーを作成しました",
   "user_created_desc": "新しいユーザーが作成されました",
-  "user_updated": "ユーザーを更新しました", 
+  "user_updated": "ユーザーを更新しました",
   "user_updated_desc": "ユーザー情報が更新されました",
   "user_deleted": "ユーザーを削除しました",
   "user_deleted_desc": "ユーザーが削除されました",
-  "user_failed": "ユーザー操作に失敗しました"
+  "user_failed": "ユーザー操作に失敗しました",
+  "cannot_delete_admin": "adminユーザーは削除できません",
+  "search_placeholder": "検索...",
+  "no_data": "データがありません",
+  "showing": "{{start}} - {{end}}件 / 全{{total}}件",
+  "previous": "前へ",
+  "next": "次へ",
+  "page": "{{current}} / {{total}}ページ"
 }

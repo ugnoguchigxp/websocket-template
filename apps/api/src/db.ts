@@ -16,9 +16,10 @@ export class DbInitializer implements IDbInitializer {
 				data: {
 					username: "admin",
 					passwordHash: hash,
+					role: "ADMIN",
 				},
 			});
-			logger.info("Admin user seeded", { username: "admin" });
+			logger.info("Admin user seeded", { username: "admin", role: "ADMIN" });
 		}
 	}
 }

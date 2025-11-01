@@ -5,8 +5,16 @@
 
 import React, { createContext, useContext, type ReactNode } from "react"
 
+interface User {
+	id: number
+	username: string
+	role: string
+}
+
 interface AuthContextType {
 	logout: () => void
+	user: User | null
+	isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -22,8 +30,15 @@ export function useAuth() {
 interface AuthProviderProps {
 	children: ReactNode
 	onLogout: () => void
+	user: User | null
 }
 
-export function AuthProvider({ children, onLogout }: AuthProviderProps) {
-	return <AuthContext.Provider value={{ logout: onLogout }}>{children}</AuthContext.Provider>
+export function AuthProvider({ children, onLogout, user }: AuthProviderProps) {
+	const isAdmin = user?.role === "ADMIN"
+
+	return (
+		<AuthContext.Provider value={{ logout: onLogout, user, isAdmin }}>
+			{children}
+		</AuthContext.Provider>
+	)
 }
