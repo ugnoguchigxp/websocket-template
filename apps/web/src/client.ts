@@ -38,12 +38,32 @@ export function createTrpcClientWithToken(token: string): TrpcClientConnection {
 			console.warn("WebSocket connection closed", { cause })
 		},
 	})
+	const loggingLink = loggerLink({
+		enabled: ({ direction, path }) => {
+			if (!path) {
+				return false
+			}
+			if (path === "auth.login") {
+				return false
+			}
+			return true
+		},
+		log: ({ direction, path, durationMs, input, result }) => {
+			console[direction === "down" ? "info" : "debug"]("tRPC", {
+				direction,
+				path,
+				durationMs,
+				input: direction === "up" ? undefined : input,
+				result: direction === "down" ? result : undefined,
+			})
+		},
+	})
 	const client = api.createClient({
-		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		links: [loggingLink, wsLink({ client: wsClient })],
 		transformer: superjson,
 	})
 	const proxyClient = createTRPCProxyClient<AppRouter>({
-		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		links: [loggingLink, wsLink({ client: wsClient })],
 		transformer: superjson,
 	})
 	return {
@@ -83,13 +103,16 @@ export function createUnauthedTrpcClient() {
 			console.warn("Unauthenticated WebSocket connection closed")
 		},
 	})
+	const loggingLink = loggerLink({
+		enabled: ({ path }) => path !== "auth.login",
+	})
 	const client = api.createClient({
 		transformer: superjson,
-		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		links: [loggingLink, wsLink({ client: wsClient })],
 	})
 	const proxyClient = createTRPCProxyClient<AppRouter>({
 		transformer: superjson,
-		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		links: [loggingLink, wsLink({ client: wsClient })],
 	})
 	return {
 		client,

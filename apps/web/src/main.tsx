@@ -86,10 +86,28 @@ function AppRoot() {
 				if (cancelled) {
 					return
 				}
-				if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
-					log.warn("Token rejected by server, clearing session")
-					clearSession()
-					return
+				if (error instanceof TRPCClientError) {
+					if (error.data?.code === "UNAUTHORIZED") {
+						log.warn("Token rejected by server, clearing session")
+						clearSession()
+						return
+					}
+					const message = error.message.toLowerCase()
+					const connectionIndicators = [
+						"websocket closed",
+						"websocket connection failed",
+						"retrying in",
+						"network error",
+					]
+					const isConnectionIssue = connectionIndicators.some(indicator => message.includes(indicator))
+					if (!isConnectionIssue) {
+						log.warn("auth.me responded with application error; clearing session", {
+							message: error.message,
+							code: error.data?.code,
+						})
+						clearSession()
+						return
+					}
 				}
 				log.error("Failed to fetch user data", error)
 			}

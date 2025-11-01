@@ -204,14 +204,16 @@ export function BBSPage() {
 		<div className="bg-gray-100 min-h-full">
 			<main className="max-w-6xl mx-auto px-4 py-6">
 				{/* Header with controls */}
-				<div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-					<Button onClick={() => setOpen(true)} className="font-mono">
-						{t("new_post")}
-					</Button>
+				<div className="mb-6 flex flex-col gap-4 items-center justify-between sm:flex-row">
+					<div className="w-full sm:w-auto">
+						<Button onClick={() => setOpen(true)} className="font-mono w-full sm:w-auto">
+							{t("new_post")}
+						</Button>
+					</div>
 					
-					{/* Global filter input */}
-					<div className="flex items-center gap-2">
-						<span className="font-mono text-sm text-gray-600">{t("search")}:</span>
+					{/* Global filter input - centered */}
+					<div className="flex items-center gap-2 justify-center">
+						<span className="font-mono text-sm text-gray-600 whitespace-nowrap">{t("search")}:</span>
 						<Input
 							placeholder={t("search_posts")}
 							value={(columnFilters.find(f => f.id === "title")?.value ?? "")}
@@ -226,6 +228,9 @@ export function BBSPage() {
 							data-testid="search-input"
 						/>
 					</div>
+					
+					{/* Spacer for desktop layout */}
+					<div className="hidden sm:block w-full sm:w-auto"></div>
 				</div>
 
 				{/* Enhanced Thread List */}
