@@ -2,11 +2,12 @@ import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Layout from "../../../src/components/layout/Layout"
 import { fireEvent, renderWithProviders, screen } from "../../test-utils"
+import { ReactElement } from "react"
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({
-		t: (key: string, fallback: string) => fallback || key,
+		t: (key: string, fallback?: string) => fallback || key,
 	}),
 }))
 
@@ -50,12 +51,7 @@ vi.mock("../../../src/components/notifications/NotificationPanel", () => ({
 }))
 
 vi.mock("../../../src/components/ui/Drawer", () => ({
-	default: ({
-		children,
-		isOpen,
-		onClose,
-		position = "right",
-	}: {
+	default: ({ children, isOpen, onClose, position = "right" }: {
 		children: React.ReactNode
 		isOpen: boolean
 		onClose: () => void
@@ -87,16 +83,11 @@ vi.mock("../../../src/components/ui/Tooltip", () => ({
 }))
 
 vi.mock("../../../src/components/TreeMenu", () => ({
-	TreeMenu: ({
-		menuData,
-		onSelect,
-		showCloseButton,
-		onCloseMenu,
-	}: {
+	TreeMenu: ({ menuData, onSelect, showCloseButton, onCloseMenu }: {
 		menuData: any[]
-		onSelect?: () => void
-		showCloseButton?: boolean
-		onCloseMenu?: () => void
+		onSelect: (item: any) => void
+		showCloseButton: boolean
+		onCloseMenu: () => void
 	}) => (
 		<div data-testid="tree-menu">
 			<div>Menu Items: {menuData.length}</div>
@@ -110,12 +101,7 @@ vi.mock("../../../src/components/TreeMenu", () => ({
 }))
 
 vi.mock("../../../src/components/ui/Button", () => ({
-	Button: ({
-		children,
-		onClick,
-		variant,
-		className,
-	}: {
+	Button: ({ children, onClick, variant, className }: {
 		children: React.ReactNode
 		onClick?: () => void
 		variant?: string
@@ -127,7 +113,7 @@ vi.mock("../../../src/components/ui/Button", () => ({
 	),
 }))
 
-const renderLayout = (component: React.ReactElement) => {
+const renderLayout = (component: ReactElement) => {
 	return renderWithProviders(component)
 }
 

@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NotificationContainer } from "../../../src/components/notifications/NotificationContainer"
 import { useNotificationContext } from "../../../src/contexts/NotificationContext"
-import type { ToastNotification } from "../../../src/contexts/NotificationContext"
 import { renderWithProviders, screen } from "../../test-utils"
-
 // Mock NotificationContext
 vi.mock("../../../src/contexts/NotificationContext", async () => {
 	const actual = await vi.importActual("../../../src/contexts/NotificationContext")
@@ -12,18 +10,9 @@ vi.mock("../../../src/contexts/NotificationContext", async () => {
 		useNotificationContext: vi.fn(),
 	}
 })
-
 // Mock NotificationToast
 vi.mock("../../../src/components/notifications/NotificationToast", () => ({
-	NotificationToast: ({
-		notification,
-		onClose,
-		onHide,
-	}: {
-		notification: ToastNotification
-		onClose: (id: string) => void
-		onHide: (id: string) => void
-	}) => (
+	NotificationToast: ({ notification, onClose, onHide }) => (
 		<div data-testid={`notification-toast-${notification.id}`}>
 			<div>{notification.title}</div>
 			<div>{notification.message}</div>
@@ -32,21 +21,18 @@ vi.mock("../../../src/components/notifications/NotificationToast", () => ({
 		</div>
 	),
 }))
-
 // Mock constants
 vi.mock("../../../src/components/notifications/constants", () => ({
 	NOTIFICATION_LIMITS: {
 		MAX_TOASTS: 5,
 	},
 }))
-
 // Mock react-dom
 vi.mock("react-dom", () => ({
-	createPortal: (node: React.ReactNode) => node,
+	createPortal: node => node,
 }))
-
 describe("NotificationContainer Component", () => {
-	const mockToasts: ToastNotification[] = [
+	const mockToasts = [
 		{
 			id: "toast-1",
 			type: "info",
@@ -66,7 +52,6 @@ describe("NotificationContainer Component", () => {
 			createdAt: new Date().toISOString(),
 		},
 	]
-
 	const mockContextValue = {
 		toasts: mockToasts,
 		isNotificationCenterOpen: false,
@@ -79,120 +64,102 @@ describe("NotificationContainer Component", () => {
 		markAsRead: vi.fn(),
 		markAllAsRead: vi.fn(),
 	}
-
 	beforeEach(() => {
 		vi.clearAllMocks()
-		;(useNotificationContext as vi.Mock).mockReturnValue(mockContextValue)
+		useNotificationContext.mockReturnValue(mockContextValue)
 	})
-
 	// Basic rendering tests
 	it("renders notification container with toasts", () => {
 		renderWithProviders(<NotificationContainer />)
-
 		expect(screen.getByTestId("notification-toast-toast-1")).toBeInTheDocument()
 		expect(screen.getByTestId("notification-toast-toast-2")).toBeInTheDocument()
 		expect(screen.getByText("Info Toast")).toBeInTheDocument()
 		expect(screen.getByText("Success Toast")).toBeInTheDocument()
 	})
-
 	it("renders empty container when no toasts", () => {
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			toasts: [],
 		})
-
 		renderWithProviders(<NotificationContainer />)
-
 		expect(screen.queryByTestId(/notification-toast-/)).not.toBeInTheDocument()
 	})
-
 	// Props tests
 	it("uses custom maxNotifications", () => {
 		const manyToasts = Array.from({ length: 10 }, (_, i) => ({
 			id: `toast-${i}`,
-			type: "info" as const,
+			type: "info",
 			title: `Toast ${i}`,
 			message: `Message ${i}`,
 			duration: 5000,
 			isVisible: true,
 			createdAt: new Date().toISOString(),
 		}))
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			toasts: manyToasts,
 		})
-
 		renderWithProviders(<NotificationContainer maxNotifications={3} />)
-
 		// Should render only first 3 toasts
 		expect(screen.getByTestId("notification-toast-toast-0")).toBeInTheDocument()
 		expect(screen.getByTestId("notification-toast-toast-1")).toBeInTheDocument()
 		expect(screen.getByTestId("notification-toast-toast-2")).toBeInTheDocument()
 		expect(screen.queryByTestId("notification-toast-toast-3")).not.toBeInTheDocument()
 	})
-
 	it("applies correct position classes", () => {
-		const positions: NonNullable<React.ComponentProps<typeof NotificationContainer>["position"]>[] =
-			["top-right", "top-left", "bottom-right", "bottom-left", "top-center", "bottom-center"]
-
+		const positions = [
+			"top-right",
+			"top-left",
+			"bottom-right",
+			"bottom-left",
+			"top-center",
+			"bottom-center",
+		]
 		positions.forEach(position => {
 			const { unmount } = renderWithProviders(<NotificationContainer position={position} />)
-
 			// Verify container renders with position
 			expect(screen.getByTestId("notification-toast-toast-1")).toBeInTheDocument()
 			unmount()
 		})
 	})
-
 	it("uses default position when not specified", () => {
 		renderWithProviders(<NotificationContainer />)
-
 		// Verify container renders with default position
 		expect(screen.getByTestId("notification-toast-toast-1")).toBeInTheDocument()
 	})
-
 	// Filter tests
 	it("only renders visible toasts", () => {
-		const mixedToasts: ToastNotification[] = [
+		const mixedToasts = [
 			{ ...mockToasts[0], isVisible: true },
 			{ ...mockToasts[1], isVisible: false },
 		]
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			toasts: mixedToasts,
 		})
-
 		renderWithProviders(<NotificationContainer />)
-
 		expect(screen.getByTestId("notification-toast-toast-1")).toBeInTheDocument()
 		expect(screen.queryByTestId("notification-toast-toast-2")).not.toBeInTheDocument()
 	})
-
 	// Context integration tests
 	it("uses notification context values", () => {
 		renderWithProviders(<NotificationContainer />)
-
 		expect(useNotificationContext).toHaveBeenCalled()
 	})
-
 	// Edge cases tests
 	it("handles empty toasts array gracefully", () => {
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			toasts: [],
 		})
-
 		renderWithProviders(<NotificationContainer />)
-
 		expect(screen.queryByTestId(/notification-toast-/)).not.toBeInTheDocument()
 	})
-
 	// Component existence test
 	it("component is properly defined", () => {
 		expect(NotificationContainer).toBeDefined()
 	})
 })
-
 // Helper for position classes
 const _positionClasses = {
 	"top-right": "top-4 right-4",

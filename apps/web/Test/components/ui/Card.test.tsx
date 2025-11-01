@@ -8,7 +8,6 @@ import {
 	CardTitle,
 } from "../../../src/components/ui/Card"
 import { renderWithProviders, screen, userEvent } from "../../test-utils"
-
 describe("Card Components", () => {
 	// Test Card component
 	describe("Card", () => {
@@ -16,20 +15,17 @@ describe("Card Components", () => {
 			renderWithProviders(<Card>Card Content</Card>)
 			expect(screen.getByText(/card content/i)).toBeInTheDocument()
 		})
-
 		it("applies custom className", () => {
 			const { container } = renderWithProviders(<Card className="custom-card">Content</Card>)
 			const card = container.firstChild
 			expect(card).toHaveClass("custom-card")
 		})
-
 		it("forwards ref to the card element", () => {
-			const ref = { current: null } as React.RefObject<HTMLDivElement>
+			const ref = { current: null }
 			renderWithProviders(<Card ref={ref}>Card with Ref</Card>)
 			expect(ref.current).toBeInstanceOf(HTMLDivElement)
 			expect(ref.current?.textContent).toBe("Card with Ref")
 		})
-
 		it("applies default styles", () => {
 			const { container } = renderWithProviders(<Card>Default Card</Card>)
 			const card = container.firstChild
@@ -40,7 +36,6 @@ describe("Card Components", () => {
 			expect(card).toHaveClass("shadow-sm")
 		})
 	})
-
 	// Test CardHeader component
 	describe("CardHeader", () => {
 		it("renders card header with children", () => {
@@ -51,7 +46,6 @@ describe("Card Components", () => {
 			)
 			expect(screen.getByText(/header content/i)).toBeInTheDocument()
 		})
-
 		it("applies default padding and spacing", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -64,9 +58,8 @@ describe("Card Components", () => {
 			expect(header).toHaveClass("flex-col")
 			expect(header).toHaveClass("space-y-1.5")
 		})
-
 		it("forwards ref to the header element", () => {
-			const ref = { current: null } as React.RefObject<HTMLDivElement>
+			const ref = { current: null }
 			renderWithProviders(
 				<Card>
 					<CardHeader ref={ref}>Header with Ref</CardHeader>
@@ -76,7 +69,6 @@ describe("Card Components", () => {
 			expect(ref.current?.textContent).toBe("Header with Ref")
 		})
 	})
-
 	// Test CardTitle component
 	describe("CardTitle", () => {
 		it("renders card title with children", () => {
@@ -91,7 +83,6 @@ describe("Card Components", () => {
 			expect(title).toBeInTheDocument()
 			expect(title.tagName).toBe("H3")
 		})
-
 		it("applies default typography styles", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -106,9 +97,8 @@ describe("Card Components", () => {
 			expect(title).toHaveClass("leading-none")
 			expect(title).toHaveClass("tracking-tight")
 		})
-
 		it("forwards ref to the title element", () => {
-			const ref = { current: null } as React.RefObject<HTMLHeadingElement>
+			const ref = { current: null }
 			renderWithProviders(
 				<Card>
 					<CardHeader>
@@ -120,7 +110,6 @@ describe("Card Components", () => {
 			expect(ref.current?.textContent).toBe("Title with Ref")
 		})
 	})
-
 	// Test CardDescription component
 	describe("CardDescription", () => {
 		it("renders card description with children", () => {
@@ -135,7 +124,6 @@ describe("Card Components", () => {
 			expect(description).toBeInTheDocument()
 			expect(description.tagName).toBe("P")
 		})
-
 		it("applies muted text styles", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -148,9 +136,8 @@ describe("Card Components", () => {
 			expect(description).toHaveClass("text-sm")
 			expect(description).toHaveClass("text-muted-foreground")
 		})
-
 		it("forwards ref to the description element", () => {
-			const ref = { current: null } as React.RefObject<HTMLParagraphElement>
+			const ref = { current: null }
 			renderWithProviders(
 				<Card>
 					<CardHeader>
@@ -162,7 +149,6 @@ describe("Card Components", () => {
 			expect(ref.current?.textContent).toBe("Description with Ref")
 		})
 	})
-
 	// Test CardContent component
 	describe("CardContent", () => {
 		it("renders card content with children", () => {
@@ -173,7 +159,6 @@ describe("Card Components", () => {
 			)
 			expect(screen.getByText(/card content/i)).toBeInTheDocument()
 		})
-
 		it("applies default padding and removes top padding", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -183,7 +168,6 @@ describe("Card Components", () => {
 			const content = container.querySelector(".p-4.pt-0")
 			expect(content).toBeInTheDocument()
 		})
-
 		it("applies custom className", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -195,9 +179,8 @@ describe("Card Components", () => {
 			expect(content).toHaveClass("p-4")
 			expect(content).toHaveClass("pt-0")
 		})
-
 		it("forwards ref to the content element", () => {
-			const ref = { current: null } as React.RefObject<HTMLDivElement>
+			const ref = { current: null }
 			renderWithProviders(
 				<Card>
 					<CardContent ref={ref}>Content with Ref</CardContent>
@@ -207,7 +190,6 @@ describe("Card Components", () => {
 			expect(ref.current?.textContent).toBe("Content with Ref")
 		})
 	})
-
 	// Test CardFooter component
 	describe("CardFooter", () => {
 		it("renders card footer with children", () => {
@@ -218,7 +200,6 @@ describe("Card Components", () => {
 			)
 			expect(screen.getByText(/footer content/i)).toBeInTheDocument()
 		})
-
 		it("applies default flex and padding styles", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -228,7 +209,6 @@ describe("Card Components", () => {
 			const footer = container.querySelector(".flex.items-center.p-4.pt-0")
 			expect(footer).toBeInTheDocument()
 		})
-
 		it("applies custom className", () => {
 			const { container } = renderWithProviders(
 				<Card>
@@ -242,9 +222,8 @@ describe("Card Components", () => {
 			expect(footer).toHaveClass("p-4")
 			expect(footer).toHaveClass("pt-0")
 		})
-
 		it("forwards ref to the footer element", () => {
-			const ref = { current: null } as React.RefObject<HTMLDivElement>
+			const ref = { current: null }
 			renderWithProviders(
 				<Card>
 					<CardFooter ref={ref}>Footer with Ref</CardFooter>
@@ -254,7 +233,6 @@ describe("Card Components", () => {
 			expect(ref.current?.textContent).toBe("Footer with Ref")
 		})
 	})
-
 	// Test integration of all card components
 	describe("Integration", () => {
 		it("renders a complete card with all components", () => {
@@ -272,7 +250,6 @@ describe("Card Components", () => {
 					</CardFooter>
 				</Card>
 			)
-
 			const card = screen.getByTestId("complete-card")
 			expect(card).toBeInTheDocument()
 			expect(screen.getByText("Complete Card")).toBeInTheDocument()
@@ -280,11 +257,9 @@ describe("Card Components", () => {
 			expect(screen.getByText("This is the main content of the card.")).toBeInTheDocument()
 			expect(screen.getByRole("button", { name: "Action" })).toBeInTheDocument()
 		})
-
 		it("handles click events on interactive elements", async () => {
 			const user = userEvent.setup()
 			const handleClick = vi.fn()
-
 			renderWithProviders(
 				<Card>
 					<CardContent>
@@ -292,7 +267,6 @@ describe("Card Components", () => {
 					</CardContent>
 				</Card>
 			)
-
 			const button = screen.getByRole("button", { name: "Click Me" })
 			await user.click(button)
 			expect(handleClick).toHaveBeenCalledTimes(1)

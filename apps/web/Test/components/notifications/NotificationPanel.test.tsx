@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NotificationPanel } from "../../../src/components/notifications/NotificationPanel"
 import { useNotificationContext } from "../../../src/contexts/NotificationContext"
-import type { ToastNotification } from "../../../src/contexts/NotificationContext"
-import { fireEvent, renderWithProviders, screen } from "../../test-utils"
-
+import { renderWithProviders, screen } from "../../test-utils"
 // Mock NotificationContext
 vi.mock("../../../src/contexts/NotificationContext", async () => {
 	const actual = await vi.importActual("../../../src/contexts/NotificationContext")
@@ -12,7 +10,6 @@ vi.mock("../../../src/contexts/NotificationContext", async () => {
 		useNotificationContext: vi.fn(),
 	}
 })
-
 // Mock react-icons
 vi.mock("react-icons/fa", () => ({
 	FaBell: () => <div data-testid="bell-icon">Bell</div>,
@@ -24,9 +21,8 @@ vi.mock("react-icons/fa", () => ({
 	FaExclamationCircle: () => <div data-testid="error-icon">Error</div>,
 	FaTrash: () => <div data-testid="trash-icon">🗑️</div>,
 }))
-
 describe("NotificationPanel Component", () => {
-	const mockNotifications: ToastNotification[] = [
+	const mockNotifications = [
 		{
 			id: "notif-1",
 			type: "info",
@@ -58,7 +54,6 @@ describe("NotificationPanel Component", () => {
 			createdAt: new Date().toISOString(),
 		},
 	]
-
 	const mockContextValue = {
 		toasts: [],
 		isNotificationCenterOpen: false,
@@ -71,61 +66,48 @@ describe("NotificationPanel Component", () => {
 		markAsRead: vi.fn(),
 		markAllAsRead: vi.fn(),
 	}
-
 	beforeEach(() => {
 		vi.clearAllMocks()
-		;(useNotificationContext as vi.Mock).mockReturnValue(mockContextValue)
+		useNotificationContext.mockReturnValue(mockContextValue)
 	})
-
 	// Basic rendering tests
 	it("renders notification panel trigger button", () => {
 		renderWithProviders(<NotificationPanel />)
-
 		expect(screen.getByTestId("bell-icon")).toBeInTheDocument()
 	})
-
 	// Notification item tests
 	it("renders notification icons when panel is open", () => {
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			isNotificationCenterOpen: true,
 			toasts: mockNotifications,
 		})
-
 		renderWithProviders(<NotificationPanel />)
-
 		// Check that notification icons are rendered
 		expect(screen.getByTestId("info-icon")).toBeInTheDocument()
 		expect(screen.getByTestId("success-icon")).toBeInTheDocument()
 		expect(screen.getByTestId("error-icon")).toBeInTheDocument()
 	})
-
 	// Empty state tests
 	it("shows empty state when no notifications", () => {
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			isNotificationCenterOpen: true,
 			toasts: [],
 		})
-
 		renderWithProviders(<NotificationPanel />)
-
 		expect(screen.getByTestId("bell-icon")).toBeInTheDocument()
 	})
-
 	// Edge cases tests
 	it("handles empty notifications array gracefully", () => {
-		;(useNotificationContext as vi.Mock).mockReturnValue({
+		useNotificationContext.mockReturnValue({
 			...mockContextValue,
 			isNotificationCenterOpen: true,
 			toasts: [],
 		})
-
 		renderWithProviders(<NotificationPanel />)
-
 		expect(screen.getByTestId("bell-icon")).toBeInTheDocument()
 	})
-
 	// Component existence test
 	it("component is properly defined", () => {
 		expect(NotificationPanel).toBeDefined()

@@ -6,16 +6,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../../src/components/ui/Select"
-import { renderWithProviders, screen, userEvent, waitFor } from "../../test-utils"
-
+import { renderWithProviders, screen } from "../../test-utils"
 // Setup Radix mocks
 import { setupRadixMocks } from "../../test-utils/radix-mocks"
-
 beforeEach(() => {
 	setupRadixMocks()
 	vi.clearAllMocks()
 })
-
 describe("Select Component", () => {
 	const defaultProps = {
 		value: "option1",
@@ -26,7 +23,6 @@ describe("Select Component", () => {
 			{ value: "option3", label: "Option 3" },
 		],
 	}
-
 	// Basic rendering tests
 	it("renders select with default props", () => {
 		renderWithProviders(
@@ -43,10 +39,8 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		expect(screen.getByRole("combobox")).toBeInTheDocument()
 	})
-
 	it("displays current value", () => {
 		renderWithProviders(
 			<Select {...defaultProps}>
@@ -62,10 +56,8 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		expect(screen.getByText("Option 1")).toBeInTheDocument()
 	})
-
 	// Custom props tests
 	it("applies custom className to trigger", () => {
 		renderWithProviders(
@@ -82,11 +74,9 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		const trigger = screen.getByRole("combobox")
 		expect(trigger).toHaveClass("custom-class")
 	})
-
 	it("applies custom id to trigger", () => {
 		renderWithProviders(
 			<Select {...defaultProps}>
@@ -102,11 +92,9 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		const trigger = screen.getByRole("combobox")
 		expect(trigger).toHaveAttribute("id", "custom-id")
 	})
-
 	// Accessibility tests
 	it("has proper accessibility attributes", () => {
 		renderWithProviders(
@@ -123,12 +111,10 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		const trigger = screen.getByRole("combobox")
 		expect(trigger).toHaveAttribute("aria-controls")
 		expect(trigger).toHaveAttribute("aria-expanded", "false")
 	})
-
 	// Edge cases
 	it("handles empty options array", () => {
 		renderWithProviders(
@@ -139,10 +125,8 @@ describe("Select Component", () => {
 				<SelectContent />
 			</Select>
 		)
-
 		expect(screen.getByRole("combobox")).toBeInTheDocument()
 	})
-
 	it("handles null value", () => {
 		renderWithProviders(
 			<Select {...defaultProps} value={null}>
@@ -158,10 +142,8 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		expect(screen.getByRole("combobox")).toBeInTheDocument()
 	})
-
 	// Component structure tests
 	it("renders all subcomponents correctly", () => {
 		renderWithProviders(
@@ -178,14 +160,11 @@ describe("Select Component", () => {
 				</SelectContent>
 			</Select>
 		)
-
 		// Check that trigger exists
 		expect(screen.getByRole("combobox")).toBeInTheDocument()
-
 		// Check that current value is displayed
 		expect(screen.getByText("Option 1")).toBeInTheDocument()
 	})
-
 	// Display names for debugging
 	it("has correct display names for components", () => {
 		expect(Select.displayName).toBe("Select")

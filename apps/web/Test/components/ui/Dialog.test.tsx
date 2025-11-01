@@ -10,22 +10,18 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../../../src/components/ui/Dialog"
-import { renderWithProviders, screen, userEvent, waitFor } from "../../test-utils"
-
+import { renderWithProviders, screen } from "../../test-utils"
 // Setup Radix mocks
 import { setupRadixMocks } from "../../test-utils/radix-mocks"
-
 beforeEach(() => {
 	setupRadixMocks()
 	vi.clearAllMocks()
 })
-
 describe("Dialog Component", () => {
 	const defaultProps = {
 		open: false,
 		onOpenChange: vi.fn(),
 	}
-
 	// Dialog basic tests
 	it("renders dialog with trigger", () => {
 		renderWithProviders(
@@ -42,10 +38,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Open Dialog")).toBeInTheDocument()
 	})
-
 	it("renders dialog content when open", () => {
 		renderWithProviders(
 			<Dialog {...defaultProps} open={true}>
@@ -61,12 +55,10 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Test Title")).toBeInTheDocument()
 		expect(screen.getByText("Test Description")).toBeInTheDocument()
 		expect(screen.getByText("Dialog Content")).toBeInTheDocument()
 	})
-
 	// DialogContent tests
 	it("renders DialogContent with proper structure", () => {
 		renderWithProviders(
@@ -80,10 +72,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Content")).toBeInTheDocument()
 	})
-
 	// DialogHeader tests
 	it("renders DialogHeader with children", () => {
 		renderWithProviders(
@@ -96,11 +86,9 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Header Title")).toBeInTheDocument()
 		expect(screen.getByText("Header Description")).toBeInTheDocument()
 	})
-
 	// DialogTitle tests
 	it("renders DialogTitle with proper semantics", () => {
 		renderWithProviders(
@@ -113,10 +101,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Important Title")).toBeInTheDocument()
 	})
-
 	// DialogDescription tests
 	it("renders DialogDescription with proper content", () => {
 		renderWithProviders(
@@ -128,10 +114,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Detailed description text")).toBeInTheDocument()
 	})
-
 	// DialogTrigger tests
 	it("renders DialogTrigger as child", () => {
 		renderWithProviders(
@@ -144,12 +128,10 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		const trigger = screen.getByTestId("trigger-button")
 		expect(trigger).toBeInTheDocument()
 		expect(trigger).toHaveTextContent("Custom Trigger")
 	})
-
 	// DialogClose tests
 	it("renders DialogClose button", () => {
 		renderWithProviders(
@@ -166,10 +148,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Close Dialog")).toBeInTheDocument()
 	})
-
 	// DialogOverlay tests
 	it("renders DialogOverlay when open", () => {
 		renderWithProviders(
@@ -184,11 +164,9 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		// Overlay should be rendered due to portal mock
 		expect(screen.getByText("Content")).toBeInTheDocument()
 	})
-
 	// Custom props tests
 	it("applies custom className to DialogContent", () => {
 		renderWithProviders(
@@ -202,10 +180,8 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		expect(screen.getByText("Content")).toBeInTheDocument()
 	})
-
 	// Accessibility tests
 	it("has proper accessibility attributes", () => {
 		renderWithProviders(
@@ -217,13 +193,11 @@ describe("Dialog Component", () => {
 				</DialogContent>
 			</Dialog>
 		)
-
 		// Dialog should have role="dialog"
 		const dialog = screen.getByRole("dialog")
 		expect(dialog).toBeInTheDocument()
 		expect(screen.getByText("Accessible Title")).toBeInTheDocument()
 	})
-
 	// Edge cases
 	it("handles empty children gracefully", () => {
 		renderWithProviders(
@@ -231,11 +205,9 @@ describe("Dialog Component", () => {
 				<DialogContent />
 			</Dialog>
 		)
-
 		const dialog = screen.getByRole("dialog")
 		expect(dialog).toBeInTheDocument()
 	})
-
 	// Display names for debugging
 	it("has correct display names for components", () => {
 		expect(Dialog.displayName).toBe("Dialog")
