@@ -1,8 +1,4 @@
-import { useAuth } from "../contexts/AuthContext"
-
-export const getMenuData = () => {
-	const { isAdmin } = useAuth()
-
+export const getMenuData = (isAdmin: boolean) => {
 	const baseMenuData = [
 		{
 			id: "top",

@@ -7,6 +7,7 @@ import {
 	type ColumnDef,
 	type SortingState,
 } from "@tanstack/react-table"
+import { useTranslation } from "react-i18next"
 import { useState } from "react"
 import { Button } from "./Button"
 
@@ -17,6 +18,7 @@ interface TableProps<TData> {
 }
 
 export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>) {
+	const { t } = useTranslation()
 	const [sorting, setSorting] = useState<SortingState>([])
 
 	const table = useReactTable({
@@ -84,7 +86,7 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 						) : (
 							<tr>
 								<td colSpan={columns.length} className="h-24 text-center">
-									No results.
+									{t("no_data")}
 								</td>
 							</tr>
 						)}
@@ -98,7 +100,7 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 					onClick={() => table.previousPage()}
 					disabled={!table.getCanPreviousPage()}
 				>
-					Previous
+					{t("previous")}
 				</Button>
 				<Button
 					variant="outline"
@@ -106,7 +108,7 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 					onClick={() => table.nextPage()}
 					disabled={!table.getCanNextPage()}
 				>
-					Next
+					{t("next")}
 				</Button>
 			</div>
 		</div>

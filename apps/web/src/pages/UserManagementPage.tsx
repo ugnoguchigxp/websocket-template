@@ -1,6 +1,6 @@
 import { createContextLogger } from "@logger"
 import type { ColumnDef } from "@tanstack/react-table"
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FiEdit, FiTrash2 } from "react-icons/fi"
 import { useNavigate } from "react-router-dom"
@@ -29,8 +29,14 @@ export function UserManagementPage() {
 	const { showSuccess, showError } = useNotificationContext()
 
 	// Check admin access
+	useEffect(() => {
+		if (!isAdmin) {
+			navigate("/")
+		}
+	}, [isAdmin, navigate])
+
+	// Return null if not admin (redirect will happen)
 	if (!isAdmin) {
-		navigate("/")
 		return null
 	}
 
@@ -102,6 +108,18 @@ export function UserManagementPage() {
 	// Helper function to check if user role is admin
 	const isUserRoleAdmin = (userRole: string) => userRole === "ADMIN"
 
+	// Helper function to get localized role name
+	const getRoleDisplayName = (role: string) => {
+		switch (role) {
+			case "USER":
+				return t("user_role")
+			case "ADMIN":
+				return t("admin_role")
+			default:
+				return role
+		}
+	}
+
 	// Helper function to format date
 	const formatDate = (dateString: string) => {
 		return new Date(dateString).toLocaleString()
@@ -170,7 +188,7 @@ export function UserManagementPage() {
 					<span
 						className={`font-mono font-bold ${info.getValue() === "ADMIN" ? "text-red-600" : "text-gray-600"}`}
 					>
-						{info.getValue()}
+						{getRoleDisplayName(info.getValue())}
 					</span>
 				),
 			},
@@ -212,7 +230,7 @@ export function UserManagementPage() {
 				},
 			},
 		],
-		[t, handleEdit, handleDelete, isUserRoleAdmin]
+		[t, handleEdit, handleDelete, isUserRoleAdmin, getRoleDisplayName]
 	)
 
 	return (
@@ -227,18 +245,18 @@ export function UserManagementPage() {
 				</div>
 
 				{/* Users List */}
-				<Table
-					data={users.data ?? []}
-					columns={columns}
-					loading={users.isLoading}
-					emptyMessage={t("no_users")}
-					enableSelection={true}
-					enableSorting={true}
-					enablePagination={true}
-					enableFiltering={true}
-					pageSize={10}
-					data-testid="user-list"
-				/>
+				{users.isLoading ? (
+					<div className="flex justify-center items-center h-32">
+						<p className="font-mono text-gray-600">{t("loading")}</p>
+					</div>
+				) : (
+					<Table
+						data={users.data ?? []}
+						columns={columns}
+						pageSize={10}
+						data-testid="user-list"
+					/>
+				)}
 			</main>
 
 			{/* Create User Dialog */}
@@ -287,10 +305,10 @@ export function UserManagementPage() {
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="USER" className="font-mono">
-										USER
+										{t("user_role")}
 									</SelectItem>
 									<SelectItem value="ADMIN" className="font-mono">
-										ADMIN
+										{t("admin_role")}
 									</SelectItem>
 								</SelectContent>
 							</Select>
@@ -358,10 +376,10 @@ export function UserManagementPage() {
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="USER" className="font-mono">
-										USER
+										{t("user_role")}
 									</SelectItem>
 									<SelectItem value="ADMIN" className="font-mono">
-										ADMIN
+										{t("admin_role")}
 									</SelectItem>
 								</SelectContent>
 							</Select>

@@ -36,8 +36,14 @@ interface AuthProviderProps {
 export function AuthProvider({ children, onLogout, user }: AuthProviderProps) {
 	const isAdmin = user?.role === "ADMIN"
 
+	const contextValue = {
+		logout: onLogout,
+		user: user,
+		isAdmin: isAdmin
+	}
+
 	return (
-		<AuthContext.Provider value={{ logout: onLogout, user, isAdmin }}>
+		<AuthContext.Provider value={contextValue}>
 			{children}
 		</AuthContext.Provider>
 	)

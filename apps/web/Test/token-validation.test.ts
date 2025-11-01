@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import { createExpiredToken, createMockToken, createTokenWithoutAudience } from "./test-utils"
+import { clearStoredToken, getStoredToken, storeToken } from "../src/lib/tokenStorage"
 describe("Token Validation", () => {
 	beforeEach(() => {
 		sessionStorage.clear()
@@ -110,6 +111,42 @@ describe("Token Validation", () => {
 			expect(sessionStorage.getItem("token")).toBe(token)
 			// Clear simulates session end
 			sessionStorage.clear()
+			expect(sessionStorage.getItem("token")).toBeNull()
+		})
+	})
+	describe("tokenStorage utilities", () => {
+		it("stores and retrieves a valid token", () => {
+			const token = createMockToken()
+			const stored = storeToken(token)
+			expect(stored?.token).toBe(token)
+			const retrieved = getStoredToken()
+			expect(retrieved?.token).toBe(token)
+			expect(retrieved?.payload.sub).toBeDefined()
+		})
+		it("accepts tokens missing audience claim", () => {
+			const token = createTokenWithoutAudience()
+			const stored = storeToken(token)
+			expect(stored?.token).toBe(token)
+			const retrieved = getStoredToken()
+			expect(retrieved?.token).toBe(token)
+		})
+		it("removes invalid tokens when storing", () => {
+			const invalidToken = "invalid.token"
+			const stored = storeToken(invalidToken)
+			expect(stored).toBeNull()
+			expect(sessionStorage.getItem("token")).toBeNull()
+		})
+		it("clears expired tokens on retrieval", () => {
+			const expired = createExpiredToken()
+			sessionStorage.setItem("token", expired)
+			const retrieved = getStoredToken()
+			expect(retrieved).toBeNull()
+			expect(sessionStorage.getItem("token")).toBeNull()
+		})
+		it("clears token via helper", () => {
+			const token = createMockToken()
+			sessionStorage.setItem("token", token)
+			clearStoredToken()
 			expect(sessionStorage.getItem("token")).toBeNull()
 		})
 	})

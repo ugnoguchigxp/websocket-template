@@ -19,13 +19,13 @@ export function Login({ onLoggedIn }) {
 		log.debug("Login submit started", { username })
 		setLoading(true)
 		setError(null)
-		const { client, close, ready } = createUnauthedTrpcClient()
+		const { client, proxyClient, close, ready } = createUnauthedTrpcClient()
 		try {
 			// Wait for WebSocket connection to be established
 			log.debug("Waiting for WebSocket connection...")
 			await ready
 			log.debug("WebSocket connection ready, sending login request", { username })
-			const res = await client.auth.login.mutate({ username, password })
+			const res = await proxyClient.auth.login.mutate({ username, password })
 			log.info("Login successful", { username })
 			close()
 			onLoggedIn(res.token)

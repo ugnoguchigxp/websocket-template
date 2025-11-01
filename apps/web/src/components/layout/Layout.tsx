@@ -1,7 +1,7 @@
 import { getMenuData } from "@/constants/menu"
 import { useAuth } from "@/contexts/AuthContext"
 import { useIsMobile } from "@/hooks/useIsMobile"
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { FaBars, FaChevronRight } from "react-icons/fa"
 import { FiUser } from "react-icons/fi"
@@ -14,9 +14,8 @@ import LanguageSelector from "../ui/LanguageSelector"
 import Tooltip from "../ui/Tooltip"
 const Layout = () => {
 	const { t } = useTranslation()
-	const { logout } = useAuth()
-	const { isAdmin } = useAuth()
-	const menuData = getMenuData()
+	const { logout, isAdmin } = useAuth()
+	const menuData = useMemo(() => getMenuData(isAdmin), [isAdmin])
 	const [dropdownOpen, setDropdownOpen] = useState(false)
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 	const isMobile = useIsMobile()

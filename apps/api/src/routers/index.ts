@@ -152,12 +152,12 @@ export const appRouter = t.router({
 					summary: "Current session user",
 				},
 			})
-			.output(z.object({ id: z.number(), username: z.string() }))
+			.output(z.object({ id: z.number(), username: z.string(), role: z.string() }))
 			.query(async ({ ctx }) => {
 				const id = Number(ctx.userId);
 				const user = await ctx.prisma.user.findUnique({ where: { id } });
 				if (!user) throw new TRPCError({ code: "NOT_FOUND" });
-				return { id: user.id, username: user.username };
+				return { id: user.id, username: user.username, role: user.role };
 			}),
 	}),
 	users: t.router({
@@ -172,18 +172,19 @@ export const appRouter = t.router({
 			}),
 		list: authed
 			.meta({ openapi: { method: "GET", path: "/users", protect: true } })
-			.output(z.array(z.object({ id: z.number(), username: z.string(), createdAt: z.date() })))
+			.output(z.array(z.object({ id: z.number(), username: z.string(), role: z.string(), createdAt: z.date() })))
 			.query(async ({ ctx }) => {
 				const users = await ctx.prisma.user.findMany({ orderBy: { id: "asc" } });
-				return users.map((u) => ({ id: u.id, username: u.username, createdAt: u.createdAt }));
+				return users.map((u) => ({ id: u.id, username: u.username, role: u.role, createdAt: u.createdAt }));
 			}),
 		create: authed
 			.meta({ openapi: { method: "POST", path: "/users", protect: true } })
 			.input(z.object({ 
 				username: z.string().min(1).max(50).regex(/^[a-zA-Z0-9_-]+$/),
-				password: z.string().min(1).max(200)
+				password: z.string().min(1).max(200),
+				role: z.enum(["USER", "ADMIN"]).default("USER")
 			}))
-			.output(z.object({ id: z.number(), username: z.string(), createdAt: z.date() }))
+			.output(z.object({ id: z.number(), username: z.string(), role: z.string(), createdAt: z.date() }))
 			.mutation(async ({ input, ctx }) => {
 				// Check if username already exists
 				const existingUser = await ctx.prisma.user.findUnique({ where: { username: input.username } });
@@ -201,19 +202,21 @@ export const appRouter = t.router({
 					data: {
 						username: input.username,
 						passwordHash,
+						role: input.role,
 					},
 				});
 				
-				return { id: user.id, username: user.username, createdAt: user.createdAt };
+				return { id: user.id, username: user.username, role: user.role, createdAt: user.createdAt };
 			}),
 		update: authed
 			.meta({ openapi: { method: "PUT", path: "/users/{id}", protect: true } })
 			.input(z.object({ 
 				id: z.number().int().positive(),
 				username: z.string().min(1).max(50).regex(/^[a-zA-Z0-9_-]+$/),
-				password: z.string().min(1).max(200).optional()
+				password: z.string().min(1).max(200).optional(),
+				role: z.enum(["USER", "ADMIN"]).optional()
 			}))
-			.output(z.object({ id: z.number(), username: z.string(), createdAt: z.date() }))
+			.output(z.object({ id: z.number(), username: z.string(), role: z.string(), createdAt: z.date() }))
 			.mutation(async ({ input, ctx }) => {
 				// Check if user exists
 				const existingUser = await ctx.prisma.user.findUnique({ where: { id: input.id } });
@@ -239,13 +242,16 @@ export const appRouter = t.router({
 				if (input.password) {
 					updateData.passwordHash = await argon2.hash(input.password);
 				}
+				if (input.role !== undefined) {
+					updateData.role = input.role;
+				}
 				
 				const user = await ctx.prisma.user.update({
 					where: { id: input.id },
 					data: updateData,
 				});
 				
-				return { id: user.id, username: user.username, createdAt: user.createdAt };
+				return { id: user.id, username: user.username, role: user.role, createdAt: user.createdAt };
 			}),
 		delete: authed
 			.meta({ openapi: { method: "DELETE", path: "/users/{id}", protect: true } })

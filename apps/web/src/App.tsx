@@ -6,7 +6,12 @@ import { TopPage } from "@pages/TopPage"
 import { UserManagementPage } from "@pages/UserManagementPage"
 import { Route, Routes } from "react-router-dom"
 import Layout from "./components/layout/Layout"
-export function App() {
+
+interface AppProps {
+	trpcClient?: any
+}
+
+export function App({ trpcClient }: AppProps) {
 	return (
 		<Routes>
 			<Route element={<Layout />}>

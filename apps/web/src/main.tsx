@@ -1,19 +1,27 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import React, { useEffect, useMemo, useState } from "react"
+import { TRPCClientError } from "@trpc/client"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { BrowserRouter } from "react-router-dom"
-import { App } from "./App"
-import { createTrpcClientWithToken } from "./client"
-import { api } from "./trpc"
-import { Login } from "./ui/Login"
-import "./index.css"
-import "./i18n"
 import { createContextLogger } from "@logger"
+import { App } from "./App"
+import { createTrpcClientWithToken, type TrpcClientConnection } from "./client"
 import { NotificationContainer } from "./components/notifications/NotificationContainer"
 import { AuthProvider } from "./contexts/AuthContext"
 import { NotificationProvider } from "./contexts/NotificationContext"
+import { clearStoredToken, getStoredToken, storeToken, type StoredToken } from "./lib/tokenStorage"
+import "./i18n"
+import "./index.css"
+import { api } from "./trpc"
+import { Login } from "./ui/Login"
 
 const log = createContextLogger("main")
+
+type AuthenticatedUser = {
+	id: number
+	username: string
+	role: string
+}
 
 // Create QueryClient as a singleton outside the component
 const queryClient = new QueryClient({
@@ -26,88 +34,98 @@ const queryClient = new QueryClient({
 })
 
 function AppRoot() {
-	const [token, setToken] = useState<string | null>(null)
+	const [tokenState, setTokenState] = useState<StoredToken | null>(() => {
+		const stored = getStoredToken()
+		if (stored) {
+			log.debug("Restored token from storage", { userId: stored.payload.sub })
+		} else {
+			log.debug("No stored token found at startup")
+		}
+		return stored
+	})
+	const [user, setUser] = useState<AuthenticatedUser | null>(null)
+
+	const connection = useMemo<TrpcClientConnection | null>(() => {
+		if (!tokenState) {
+			return null
+		}
+		return createTrpcClientWithToken(tokenState.token)
+	}, [tokenState?.token])
+
 	useEffect(() => {
-		const storedToken = sessionStorage.getItem("token")
-		if (storedToken) {
-			// Validate token format (JWT should have 3 parts)
-			const parts = storedToken.split(".")
-			if (parts.length !== 3) {
-				log.warn("Invalid token format detected, clearing sessionStorage")
-				sessionStorage.removeItem("token")
-				setToken(null)
-				return
-			}
-			// Check token claims and expiration
+		if (!connection) {
+			return
+		}
+		return () => {
+			connection.close()
+		}
+	}, [connection])
+
+	const clearSession = useCallback(() => {
+		log.info("Clearing authentication session")
+		clearStoredToken()
+		setTokenState(null)
+		setUser(null)
+		queryClient.clear()
+	}, [])
+
+	useEffect(() => {
+		if (!connection || user) {
+			return
+		}
+		let cancelled = false
+		const fetchUser = async () => {
 			try {
-				const payload = JSON.parse(atob(parts[1]))
-
-				// Check for required claims
-				if (!payload.aud) {
-					log.warn("Token missing audience claim, clearing old token")
-					sessionStorage.removeItem("token")
-					setToken(null)
+				const userData = await connection.proxyClient.auth.me.query()
+				if (cancelled) {
 					return
 				}
-
-				// Check expiration
-				if (!payload.exp) {
-					log.warn("Token missing expiration claim, clearing token")
-					sessionStorage.removeItem("token")
-					setToken(null)
+				setUser(userData)
+				log.info("User data fetched", { username: userData.username, role: userData.role })
+			} catch (error) {
+				if (cancelled) {
 					return
 				}
-
-				// Check if token is expired (exp is in seconds, Date.now() is in milliseconds)
-				const now = Date.now()
-				const expirationTime = payload.exp * 1000
-				if (expirationTime < now) {
-					log.warn("Token expired, clearing token", {
-						expiresAt: new Date(expirationTime).toISOString(),
-						now: new Date(now).toISOString(),
-					})
-					sessionStorage.removeItem("token")
-					setToken(null)
+				if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+					log.warn("Token rejected by server, clearing session")
+					clearSession()
 					return
 				}
-
-				log.debug("Token validated successfully", {
-					expiresAt: new Date(expirationTime).toISOString(),
-					userId: payload.sub,
-				})
-			} catch (err) {
-				log.warn("Failed to parse token payload, clearing token", {
-					error: err instanceof Error ? err.message : String(err),
-				})
-				sessionStorage.removeItem("token")
-				setToken(null)
-				return
+				log.error("Failed to fetch user data", error)
 			}
 		}
-		setToken(storedToken)
-	}, [])
-	const trpcClient = useMemo(() => (token ? createTrpcClientWithToken(token) : null), [token])
+		fetchUser()
+		return () => {
+			cancelled = true
+		}
+	}, [connection, clearSession, user])
 
-	log.info("AppRoot initialized", { hasToken: !!token })
+	const handleLoginSuccess = useCallback(
+		(newToken: string) => {
+			const stored = storeToken(newToken)
+			if (!stored) {
+				log.warn("Received invalid token after login, clearing session")
+				clearSession()
+				return
+			}
+			setTokenState(stored)
+			setUser(null)
+		},
+		[clearSession],
+	)
 
-	const handleLogout = () => {
+	const handleLogout = useCallback(() => {
 		log.info("Logging out")
-		sessionStorage.removeItem("token")
-		setToken(null)
-		// Force page reload to clear any cached state
-		window.location.reload()
-	}
+		clearSession()
+	}, [clearSession])
 
-	if (!trpcClient) {
+	log.info("AppRoot initialized", { hasToken: !!tokenState })
+
+	if (!connection) {
 		return (
 			<BrowserRouter>
 				<NotificationProvider>
-					<Login
-						onLoggedIn={t => {
-							sessionStorage.setItem("token", t)
-							setToken(t)
-						}}
-					/>
+					<Login onLoggedIn={handleLoginSuccess} />
 					<NotificationContainer />
 				</NotificationProvider>
 			</BrowserRouter>
@@ -116,9 +134,9 @@ function AppRoot() {
 
 	return (
 		<BrowserRouter>
-			<AuthProvider onLogout={handleLogout}>
+			<AuthProvider onLogout={handleLogout} user={user}>
 				<NotificationProvider>
-					<api.Provider client={trpcClient} queryClient={queryClient}>
+					<api.Provider client={connection.client} queryClient={queryClient}>
 						<QueryClientProvider client={queryClient}>
 							<App />
 						</QueryClientProvider>

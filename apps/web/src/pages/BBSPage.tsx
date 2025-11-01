@@ -1,5 +1,5 @@
 import { createContextLogger } from "@logger"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import React, { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "../components/ui/Button"
@@ -10,23 +10,39 @@ import { Textarea } from "../components/ui/Textarea"
 import { useNotificationContext } from "../contexts/NotificationContext"
 import i18n from "../i18n"
 import { api } from "../trpc"
+
 const log = createContextLogger("BBSPage")
+
 export function BBSPage() {
 	const { t } = useTranslation()
 	const { showSuccess, showError } = useNotificationContext()
+	
+	// Table state
+	const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }])
+	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+	
+	// Posts data
 	const posts = api.posts.list.useQuery(
 		{ limit: 50 },
 		{ staleTime: 60_000, refetchOnWindowFocus: false }
 	)
-	const [selectedPostId, setSelectedPostId] = useState(null)
+	
+	// UI state
+	const [selectedPostId, setSelectedPostId] = useState<number | null>(null)
+	const [open, setOpen] = useState(false)
+	const [title, setTitle] = useState("")
+	const [body, setBody] = useState("")
+	
+	// Comments
 	const comments = api.posts.comments.list.useQuery(
 		selectedPostId ? { postId: selectedPostId } : undefined,
 		{ enabled: !!selectedPostId }
 	)
-	// New Post modal
-	const [open, setOpen] = useState(false)
-	const [title, setTitle] = useState("")
-	const [body, setBody] = useState("")
+	
+	// Comment form
+	const [commentBody, setCommentBody] = useState("")
+	
+	// Mutations
 	const createPost = api.posts.create.useMutation({
 		onSuccess: () => {
 			setTitle("")
@@ -41,8 +57,7 @@ export function BBSPage() {
 			log.error("Failed to create post", e)
 		},
 	})
-	// Add Comment
-	const [commentBody, setCommentBody] = useState("")
+	
 	const addComment = api.posts.comments.add.useMutation({
 		onSuccess: () => {
 			setCommentBody("")
@@ -55,6 +70,7 @@ export function BBSPage() {
 			log.error("Failed to add comment", e)
 		},
 	})
+	
 	// Helper function to format date
 	const formatDate = (date: string) => {
 		return new Date(date).toLocaleString(i18n.language === "ja" ? "ja-JP" : "en-US", {
@@ -77,22 +93,42 @@ export function BBSPage() {
 		}
 	}
 
-	// Table columns
+	// Table columns with enhanced features
 	const columns = useMemo<ColumnDef<any>[]>(
 		() => [
 			{
 				accessorKey: "id",
-				header: () => <span className="font-mono">{t("number")}</span>,
+				header: ({ column }) => (
+					<button
+						className="font-mono font-semibold hover:bg-gray-100 px-2 py-1 rounded"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						{t("number")}
+						{column.getIsSorted() === "asc" && " ↑"}
+						{column.getIsSorted() === "desc" && " ↓"}
+					</button>
+				),
 				cell: info => <span className="font-mono text-gray-600">{info.getValue()}</span>,
+				enableSorting: true,
+				enableColumnFilter: false,
 			},
 			{
 				accessorKey: "title",
-				header: () => <span className="font-mono">{t("title")}</span>,
+				header: ({ column }) => (
+					<button
+						className="font-mono font-semibold hover:bg-gray-100 px-2 py-1 rounded"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						{t("title")}
+						{column.getIsSorted() === "asc" && " ↑"}
+						{column.getIsSorted() === "desc" && " ↓"}
+					</button>
+				),
 				cell: info => {
 					const post = info.row.original
 					return (
 						<button
-							className="font-mono text-left text-blue-600 underline hover:text-blue-800 w-full"
+							className="font-mono text-left text-blue-600 underline hover:text-blue-800 w-full hover:bg-blue-50 px-2 py-1 rounded transition-colors"
 							onClick={() => setSelectedPostId(post.id)}
 							data-testid="post-title"
 						>
@@ -100,18 +136,59 @@ export function BBSPage() {
 						</button>
 					)
 				},
+				enableSorting: true,
+				filterFn: (row, columnId, filterValue) => {
+					const title = row.getValue(columnId) as string
+					return title.toLowerCase().includes(filterValue.toLowerCase())
+				},
 			},
 			{
 				accessorKey: "author",
-				header: () => <span className="font-mono">{t("author")}</span>,
-				cell: info => <span className="font-mono text-gray-700">{info.getValue()?.username}</span>,
+				header: ({ column }) => (
+					<button
+						className="font-mono font-semibold hover:bg-gray-100 px-2 py-1 rounded"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						{t("author")}
+						{column.getIsSorted() === "asc" && " ↑"}
+						{column.getIsSorted() === "desc" && " ↓"}
+					</button>
+				),
+				cell: info => (
+					<span className="font-mono text-gray-700 font-medium">
+						{info.getValue()?.username}
+					</span>
+				),
+				enableSorting: true,
+				filterFn: (row, columnId, filterValue) => {
+					const author = row.getValue(columnId) as { username: string }
+					return author.username.toLowerCase().includes(filterValue.toLowerCase())
+				},
 			},
 			{
 				accessorKey: "createdAt",
-				header: () => <span className="font-mono">{t("posted_at")}</span>,
-				cell: info => (
-					<span className="font-mono text-gray-600">{formatDate(info.getValue())}</span>
+				header: ({ column }) => (
+					<button
+						className="font-mono font-semibold hover:bg-gray-100 px-2 py-1 rounded"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						{t("posted_at")}
+						{column.getIsSorted() === "asc" && " ↑"}
+						{column.getIsSorted() === "desc" && " ↓"}
+					</button>
 				),
+				cell: info => (
+					<span className="font-mono text-gray-600">
+						{formatDate(info.getValue())}
+					</span>
+				),
+				enableSorting: true,
+				enableColumnFilter: false,
+				sortingFn: (rowA, rowB, columnId) => {
+					const dateA = new Date(rowA.getValue(columnId) as string)
+					const dateB = new Date(rowB.getValue(columnId) as string)
+					return dateA.getTime() - dateB.getTime()
+				},
 			},
 		],
 		[t, formatDate]
@@ -126,14 +203,32 @@ export function BBSPage() {
 	return (
 		<div className="bg-gray-100 min-h-full">
 			<main className="max-w-6xl mx-auto px-4 py-6">
-				{/* New Post Button */}
-				<div className="mb-4">
+				{/* Header with controls */}
+				<div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
 					<Button onClick={() => setOpen(true)} className="font-mono">
 						{t("new_post")}
 					</Button>
+					
+					{/* Global filter input */}
+					<div className="flex items-center gap-2">
+						<span className="font-mono text-sm text-gray-600">{t("search")}:</span>
+						<Input
+							placeholder={t("search_posts")}
+							value={(columnFilters.find(f => f.id === "title")?.value ?? "")}
+							onChange={e =>
+								setColumnFilters(
+									e.target.value
+										? [{ id: "title", value: e.target.value }]
+										: []
+								)
+							}
+							className="font-mono max-w-xs"
+							data-testid="search-input"
+						/>
+					</div>
 				</div>
 
-				{/* Thread List */}
+				{/* Enhanced Thread List */}
 				<Table
 					data={posts.data?.items ?? []}
 					columns={columns}
@@ -144,7 +239,11 @@ export function BBSPage() {
 					enablePagination={true}
 					enableFiltering={true}
 					pageSize={20}
-					className="mb-6"
+					sorting={sorting}
+					onSortingChange={setSorting}
+					columnFilters={columnFilters}
+					onColumnFiltersChange={setColumnFilters}
+					className="mb-6 shadow-sm border border-gray-200"
 					data-testid="post-list"
 				/>
 

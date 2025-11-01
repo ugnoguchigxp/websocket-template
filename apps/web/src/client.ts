@@ -2,65 +2,65 @@ import { createTRPCProxyClient, createWSClient, wsLink } from "@trpc/client"
 import { loggerLink } from "@trpc/client/links/loggerLink"
 import superjson from "superjson"
 import { api } from "./trpc"
-function redact(path, input) {
+import type { AppRouter } from "../../api/src/routers/index"
+import type { CreateTRPCProxyClient } from "@trpc/client"
+
+function redact(path: string, input: any) {
 	if (path === "auth.login" && input && typeof input === "object" && "username" in input) {
 		const { username } = input
 		return { username, password: "***" }
 	}
 	return input
 }
-// Track reconnection attempts to prevent infinite loops
-let reconnectAttempts = 0
-const MAX_RECONNECT_ATTEMPTS = 3
-const RECONNECT_DELAY = 2000
 
-export function createTrpcClientWithToken(token) {
+export type TrpcClientConnection = {
+	client: ReturnType<typeof api.createClient>
+	proxyClient: CreateTRPCProxyClient<AppRouter>
+	close: () => void
+}
+
+export function createTrpcClientWithToken(token: string): TrpcClientConnection {
 	const protocol = location.protocol === "https:" ? "wss:" : "ws:"
 	const url = `${protocol}//${location.hostname}:3001`
 	const wsClient = createWSClient({
 		url,
+		retryDelayMs: attempt => Math.min(1000 * 2 ** attempt, 10_000),
 		WebSocket: class extends WebSocket {
-			constructor(url) {
+			constructor(url: string | URL, protocols?: string | string[]) {
+				// Enforce bearer token subprotocol for authentication
 				super(url, ["bearer", token])
 			}
 		},
 		onOpen: () => {
 			console.log("WebSocket connection established successfully")
-			// Reset reconnection counter on successful connection
-			reconnectAttempts = 0
 		},
 		onClose: (cause) => {
 			console.warn("WebSocket connection closed", { cause })
-
-			// Check if this is an authentication failure (close code 1008 = policy violation)
-			// or if we've exceeded max reconnection attempts
-			if (cause?.code === 1008 || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-				console.error("Authentication failed or max reconnection attempts reached. Clearing token and redirecting to login.")
-				// Clear the invalid token
-				sessionStorage.removeItem("token")
-				// Reload the page to show login screen
-				window.location.reload()
-				return
-			}
-
-			// Increment reconnection counter
-			reconnectAttempts++
-			console.warn(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`)
-
-			// Attempt to reconnect after delay
-			setTimeout(() => {
-				window.location.reload()
-			}, RECONNECT_DELAY)
-		},
-		onError: (err) => {
-			console.error("WebSocket connection error:", err)
 		},
 	})
-	return api.createClient({
-		transformer: superjson,
+	const client = api.createClient({
 		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		transformer: superjson,
 	})
+	const proxyClient = createTRPCProxyClient<AppRouter>({
+		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+		transformer: superjson,
+	})
+	return {
+		client,
+		proxyClient,
+		close: () => {
+			try {
+				wsClient.close()
+			} catch (error) {
+				console.debug("Failed to close authenticated WebSocket cleanly", {
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+		},
+	}
 }
+
 export function createUnauthedTrpcClient() {
 	const protocol = location.protocol === "https:" ? "wss:" : "ws:"
 	const url = `${protocol}//${location.hostname}:3001`
@@ -82,17 +82,27 @@ export function createUnauthedTrpcClient() {
 		onClose: () => {
 			console.warn("Unauthenticated WebSocket connection closed")
 		},
-		onError: (err) => {
-			console.error("Unauthenticated WebSocket connection error:", err)
-		},
 	})
-	const client = createTRPCProxyClient({
+	const client = api.createClient({
+		transformer: superjson,
+		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
+	})
+	const proxyClient = createTRPCProxyClient<AppRouter>({
 		transformer: superjson,
 		links: [loggerLink({ enabled: () => true }), wsLink({ client: wsClient })],
 	})
 	return {
 		client,
-		close: () => wsClient.close(),
+		proxyClient,
+		close: () => {
+			try {
+				wsClient.close()
+			} catch (error) {
+				console.debug("Failed to close unauthenticated WebSocket cleanly", {
+					error: error instanceof Error ? error.message : String(error),
+				})
+			}
+		},
 		ready: connectionReadyPromise,
 	}
 }
