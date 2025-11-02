@@ -3,32 +3,35 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import argon2 from "argon2";
 import superjson from "superjson";
 import type { OpenApiMeta } from "trpc-openapi";
-import { container } from "tsyringe";
 import { z } from "zod";
-import { JwtService } from "../JwtService.js";
+import type { AccessTokenClaims } from "../JwtService.js";
 import { logger } from "../modules/logger/core/logger.js";
 import { sanitizeText } from "../utils/sanitize.js";
 import { createAuditMiddleware } from "../utils/audit.js";
-import { 
-	createRateLimitMiddleware, 
-	rateLimitLogin, 
-	resetLoginAttempts, 
-	startCleanupInterval, 
-	LOGIN_DELAY_MS 
-} from "../utils/rateLimit.js";
+import { createRateLimitMiddleware, startCleanupInterval } from "../utils/rateLimit.js";
 
 // Log JWT environment variables on module load for verification
 logger.debug("Routers module initialized", {
-	JWT_ISSUER: process.env.JWT_ISSUER,
-	JWT_AUDIENCE: process.env.JWT_AUDIENCE,
-	hasIssuer: !!process.env.JWT_ISSUER,
-	hasAudience: !!process.env.JWT_AUDIENCE,
+	OIDC_ISSUER: process.env.OIDC_ISSUER,
+	OIDC_AUDIENCE: process.env.OIDC_AUDIENCE,
+	hasIssuer: !!process.env.OIDC_ISSUER,
+	hasAudience: !!process.env.OIDC_AUDIENCE,
 });
 
+export type ContextUser = {
+	sub: string;
+	localUserId: number;
+	roles: string[];
+	email?: string | null;
+	preferredUsername?: string | null;
+	name?: string | null;
+	claims: AccessTokenClaims;
+};
+
 export type Context = {
-	userId: string | null;
+	user: ContextUser | null;
 	prisma: PrismaClient;
-	jwtSecret: string;
+	accessToken: string | null;
 };
 
 // Type definitions for API responses
@@ -68,7 +71,7 @@ const audit = createAuditMiddleware();
 const base = t.procedure.use(rateLimit).use(audit);
 
 const requireUser = t.middleware(({ ctx, next }) => {
-	if (!ctx.userId) {
+	if (!ctx.user) {
 		throw new TRPCError({ code: "UNAUTHORIZED" });
 	}
 	return next();
@@ -79,6 +82,18 @@ export const authed = base.use(requireUser);
 // Start cleanup interval for rate limiting
 startCleanupInterval();
 
+
+const authMeOutput = z.object({
+	id: z.number(),
+	username: z.string(),
+	role: z.string(),
+	email: z.string().nullable(),
+	displayName: z.string().nullable(),
+	sub: z.string(),
+	preferredUsername: z.string().nullable(),
+	name: z.string().nullable(),
+	roles: z.array(z.string()),
+});
 
 export const appRouter = t.router({
 	// Health check endpoint (no authentication required)
@@ -99,50 +114,6 @@ export const appRouter = t.router({
 			};
 		}),
 	auth: t.router({
-		login: base
-			.meta({
-				openapi: {
-					method: "POST",
-					path: "/auth/login",
-					protect: false,
-					summary: "Login and return JWT",
-				},
-			})
-			.input(
-				z.object({
-					username: z
-						.string()
-						.min(1)
-						.max(50)
-						.regex(/^[a-zA-Z0-9_-]+$/, "Username must be alphanumeric")
-						.describe("ユーザ名"),
-					password: z.string().min(1).max(200).describe("パスワード"),
-				})
-			)
-			.output(z.object({ token: z.string().describe("JWT") }))
-			.mutation(async ({ input, ctx }) => {
-				await new Promise((r) => setTimeout(r, LOGIN_DELAY_MS)); // Uniform delay
-				if (!rateLimitLogin(input.username)) {
-					throw new TRPCError({
-						code: "TOO_MANY_REQUESTS",
-						message: "Too many attempts. Please try again later.",
-					});
-				}
-				const user = await ctx.prisma.user.findUnique({ where: { username: input.username } });
-				if (!user) {
-					throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials." });
-				}
-				const ok = await argon2.verify(user.passwordHash, input.password);
-				if (!ok) {
-					throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials." });
-				}
-				resetLoginAttempts(input.username);
-				// Use JwtService from DI container to sign token
-				const jwtService = container.resolve(JwtService);
-				const token = jwtService.sign(String(user.id));
-				logger.info("Login successful", { userId: user.id, username: user.username });
-				return { token };
-			}),
 		me: authed
 			.meta({
 				openapi: {
@@ -152,12 +123,26 @@ export const appRouter = t.router({
 					summary: "Current session user",
 				},
 			})
-			.output(z.object({ id: z.number(), username: z.string(), role: z.string() }))
+			.output(authMeOutput)
 			.query(async ({ ctx }) => {
-				const id = Number(ctx.userId);
-				const user = await ctx.prisma.user.findUnique({ where: { id } });
+				if (!ctx.user) {
+					throw new TRPCError({ code: "UNAUTHORIZED" });
+				}
+				const user = await ctx.prisma.user.findUnique({
+					where: { id: ctx.user.localUserId },
+				});
 				if (!user) throw new TRPCError({ code: "NOT_FOUND" });
-				return { id: user.id, username: user.username, role: user.role };
+				return {
+					id: user.id,
+					username: user.username,
+					role: user.role,
+					email: user.email ?? null,
+					displayName: user.displayName ?? null,
+					sub: ctx.user.sub,
+					preferredUsername: ctx.user.preferredUsername ?? null,
+					name: ctx.user.name ?? null,
+					roles: ctx.user.roles,
+				};
 			}),
 	}),
 	users: t.router({
@@ -357,7 +342,7 @@ export const appRouter = t.router({
 					data: {
 						title: sanitizeText(input.title),
 						body: sanitizeText(input.body),
-						authorId: Number(ctx.userId),
+						authorId: ctx.user!.localUserId,
 					},
 					select: { id: true, title: true, body: true, createdAt: true },
 				});
@@ -400,7 +385,7 @@ export const appRouter = t.router({
 							data: {
 								postId: input.postId,
 								body: sanitizeText(input.body),
-								authorId: Number(ctx.userId),
+								authorId: ctx.user!.localUserId,
 							},
 							select: { id: true, body: true, createdAt: true },
 						});

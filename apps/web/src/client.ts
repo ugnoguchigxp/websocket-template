@@ -5,14 +5,6 @@ import { api } from "./trpc"
 import type { AppRouter } from "../../api/src/routers/index"
 import type { CreateTRPCProxyClient } from "@trpc/client"
 
-function redact(path: string, input: any) {
-	if (path === "auth.login" && input && typeof input === "object" && "username" in input) {
-		const { username } = input
-		return { username, password: "***" }
-	}
-	return input
-}
-
 export type TrpcClientConnection = {
 	client: ReturnType<typeof api.createClient>
 	proxyClient: CreateTRPCProxyClient<AppRouter>
@@ -39,15 +31,7 @@ export function createTrpcClientWithToken(token: string): TrpcClientConnection {
 		},
 	})
 	const loggingLink = loggerLink({
-		enabled: ({ direction, path }) => {
-			if (!path) {
-				return false
-			}
-			if (path === "auth.login") {
-				return false
-			}
-			return true
-		},
+		enabled: ({ path }) => !!path,
 		log: ({ direction, path, durationMs, input, result }) => {
 			console[direction === "down" ? "info" : "debug"]("tRPC", {
 				direction,
@@ -78,54 +62,5 @@ export function createTrpcClientWithToken(token: string): TrpcClientConnection {
 				})
 			}
 		},
-	}
-}
-
-export function createUnauthedTrpcClient() {
-	const protocol = location.protocol === "https:" ? "wss:" : "ws:"
-	const url = `${protocol}//${location.hostname}:3001`
-
-	// Create a promise that resolves when connection is established
-	let connectionReady: ((value: void | PromiseLike<void>) => void) | null = null
-	const connectionReadyPromise = new Promise<void>((resolve) => {
-		connectionReady = resolve
-	})
-
-	const wsClient = createWSClient({
-		url,
-		onOpen: () => {
-			console.log("Unauthenticated WebSocket connection established")
-			if (connectionReady) {
-				connectionReady()
-			}
-		},
-		onClose: () => {
-			console.warn("Unauthenticated WebSocket connection closed")
-		},
-	})
-	const loggingLink = loggerLink({
-		enabled: ({ path }) => path !== "auth.login",
-	})
-	const client = api.createClient({
-		transformer: superjson,
-		links: [loggingLink, wsLink({ client: wsClient })],
-	})
-	const proxyClient = createTRPCProxyClient<AppRouter>({
-		transformer: superjson,
-		links: [loggingLink, wsLink({ client: wsClient })],
-	})
-	return {
-		client,
-		proxyClient,
-		close: () => {
-			try {
-				wsClient.close()
-			} catch (error) {
-				console.debug("Failed to close unauthenticated WebSocket cleanly", {
-					error: error instanceof Error ? error.message : String(error),
-				})
-			}
-		},
-		ready: connectionReadyPromise,
 	}
 }

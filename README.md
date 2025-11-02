@@ -7,7 +7,7 @@
 - モノレポ: pnpm workspaces
 - RPC: tRPC v10 over WebSocket（RESTライクな JSON RPC、HTTP は不使用）
 - サーバ: `ws` + `@trpc/server`
-- 認証: JWT（WS 接続 Subprotocol `['bearer', token]` 経由、フォールバックとして URL クエリパラメータ対応）
+- 認証: OIDC アクセストークン（WS 接続 Subprotocol `['bearer', token]` 経由、フォールバックとして URL クエリパラメータ対応）
 - DB: Prisma 5 + PostgreSQL（開発環境ではSQLiteも選択可能）
 - フロント: React + Vite + @tanstack/react-query + Tailwind + shadcn/ui（Radix）
 - 多言語化: i18next + react-i18next
@@ -20,7 +20,7 @@
 ```
 websocketFramework/
 ├── apps/
-│   ├── api/               # tRPC WebSocketサーバ、Prisma、JWT検証
+│   ├── api/               # tRPC WebSocketサーバ、Prisma、OIDCトークン検証
 │   │   ├── prisma/        # Prisma schema と dev.db
 │   │   ├── src/
 │   │   │   ├── routers/   # tRPC ルーター定義
@@ -44,16 +44,16 @@ websocketFramework/
 │   ├── ARCHITECTURE-COMPARISON.md
 │   ├── AKS-DEPLOYMENT-GUIDE.md
 │   └── README.md
-├── .env.example           # 環境変数テンプレート
+├── .env.example           # API 用環境変数テンプレート
 └── package.json           # pnpm workspace ルート
 ```
 
 ## 主要機能
-- **認証**: JWT トークンによるユーザー認証（WebSocket Subprotocol経由）
+- **認証**: OIDC アクセストークンによるユーザー認証（WebSocket Subprotocol経由）
 - **投稿管理**: 記事の一覧・詳細表示・作成
 - **コメント**: 各記事へのコメント追加・一覧表示
 - **多言語対応**: i18next による日本語/英語切り替え
-- **セキュリティ**: Origin検証、レート制限、入力サニタイズ、JWT検証強化
+- **セキュリティ**: Origin検証、レート制限、入力サニタイズ、OIDCトークン検証
 - **監視**: 構造化ログによる監査ログ、エラートラッキング
 - **OpenAPI**: 自動生成されたAPI仕様書
 
@@ -62,26 +62,27 @@ websocketFramework/
 - `.env` から環境変数をロード（dotenv）
 - `WebSocketServer` を `PORT`（既定 3001）で起動
 - tRPC の `appRouter` を WS ハンドラに適用
-- WS 接続時、Subprotocol `['bearer', token]` から JWT を検証し `ctx.userId` を設定
-- フォールバック: URL クエリパラメータ `?token=<JWT>` も対応
-- 起動時に `ensureDemoUser()` でデモユーザ `demo / demo1234` を作成
+- WS 接続時、Subprotocol `['bearer', accessToken]` から OIDC アクセストークンを検証し `ctx.user` を構築
+- フォールバック: URL クエリパラメータ `?token=<accessToken>` も対応（互換用）
+- 起動時に `ensureDemoUser()` でデモユーザ `demo / demo1234` を作成（移行期間の互換用）
 
 ### 環境変数
 必須：
-- `JWT_SECRET`: JWT の署名/検証シークレット（32文字以上推奨、`openssl rand -base64 32` で生成）
-- `ALLOWED_WS_ORIGIN`: WebSocket接続を許可するOrigin（例: `http://localhost:5173`）
+- `OIDC_ISSUER`: IdP の Issuer URL（例: `https://tenant.auth0.com/`）
+- `OIDC_CLIENT_ID`: 対話用クライアント ID
+- `OIDC_CLIENT_SECRET`: 機密クライアント用シークレット（PKCE + サーバ仲介方式で使用）
+- `OIDC_REDIRECT_URI`: 認可コード受け取り用のリダイレクト URI（例: `http://localhost:8000/`）
+- `ALLOWED_WS_ORIGIN`: WebSocket 接続を許可する Origin（例: `http://localhost:8000`）
+- `ALLOWED_HTTP_ORIGIN`: `/auth/*` REST エンドポイントを許可する Origin
 
 オプション：
 - `PORT`: リッスンポート（デフォルト: 3001）
 - `DATABASE_URL`: Prisma Database URL（デフォルト: `file:./dev.db`）
-- `JWT_ISSUER`: JWT発行者（推奨: `websocket-framework`）
-- `JWT_AUDIENCE`: JWT対象（推奨: `websocket-framework-api`）
+- `OIDC_AUDIENCE`: アクセストークンの Audience チェックに使用
+- `OIDC_SCOPE`: 認可リクエストに付与するスコープ（デフォルト: `openid profile email offline_access`）
+- `OIDC_REFRESH_COOKIE_NAME`, `OIDC_REFRESH_COOKIE_SAMESITE`, `OIDC_REFRESH_TOKEN_TTL_SECONDS` など Cookie/TLL 調整
 - `NODE_ENV`: 環境設定（`development` / `production`）
 - `MAX_WS_CONNECTIONS`: 最大WebSocket接続数（デフォルト: 1000）
-- `RATE_LIMIT_TOKENS`: レート制限トークン数（デフォルト: 60）
-- `RATE_LIMIT_INTERVAL_MS`: レート制限インターバル（デフォルト: 60000ms）
-- `LOGIN_RATE_LIMIT_MAX`: ログイン試行回数上限（デフォルト: 10）
-- `LOGIN_RATE_LIMIT_WINDOW_MS`: ログインレート制限ウィンドウ（デフォルト: 900000ms = 15分）
 
 ### Prisma/Database
 - **デフォルト**: PostgreSQL（Docker Composeで簡単セットアップ）
@@ -92,13 +93,15 @@ websocketFramework/
 
 ### API ルーター（`apps/api/src/routers/index.ts`）
 - **SuperJSON**: サーバ/クライアント双方で有効化（Date型等の自動シリアライズ）
-- **Context**: `{ userId: string | null, prisma: PrismaClient, jwtSecret: string }`
+- **Context**: `{ user: ContextUser | null, prisma: PrismaClient, accessToken: string | null }`
 - **Middleware**: レート制限、監査ログ、認証チェック
 
 #### エンドポイント一覧
 **認証（`auth`）:**
-- `auth.login({ username, password }) -> { token }` - ログインしてJWT取得
-- `auth.me() -> { id, username }` - 現在のユーザー情報（認証必須）
+- `auth.me() -> { id, username, role, email?, sub, roles[] }` - 現在の認証済みユーザー情報
+- REST `/auth/exchange`: Authorization Code + PKCE をアクセストークンに交換（HttpOnly Cookie で refresh session 発行）
+- REST `/auth/refresh`: Cookie 送信でアクセストークン再発行
+- REST `/auth/logout`: refresh session 破棄・IdP revocation（可能であれば）
 
 **ユーザー（`users`）:** （全て認証必須）
 - `users.list() -> User[]` - ユーザー一覧
@@ -123,10 +126,12 @@ websocketFramework/
 - **開発サーバ**: Vite (ポート 5173)
 
 ### ログインフロー
-1. 未認証 tRPC クライアントで `auth.login` を呼ぶ
-2. 成功後、未認証WSは即 close
-3. JWT を localStorage に保存
-4. Subprotocol `['bearer', token]` 付きで WS クライアントを再作成
+1. ログインボタン押下で PKCE ペア（code_verifier / code_challenge）を生成し、IdP の `/authorize` へリダイレクト
+2. ブラウザが `?code=...&state=...` 付きで `VITE_OIDC_REDIRECT_URI` に戻る
+3. React 側で `sessionStorage` に保存した `code_verifier` / `state` を取り出し、バックエンドの `POST /auth/exchange` に送信
+4. サーバが IdP とトークン交換し、アクセストークンを返却 + refresh session を HttpOnly Cookie で発行
+5. アクセストークンは `sessionStorage` に保存し、Subprotocol `['bearer', token]` 付きで WS クライアントを再生成
+6. 有効期限が近づくと自動で `POST /auth/refresh` を呼び出し、トークンをローテーション
 
 ### BBS UI
 - **左サイドバー**: Post 一覧（選択可能）
@@ -148,10 +153,10 @@ websocketFramework/
   - クライアント側可逆暗号は不採用（鍵配布の課題と実効安全性向上が限定的なため）
 
 ### WebSocket セキュリティ
-- **JWT検証の厳格化**:
-  - アルゴリズム: `HS256` 固定
-  - `JWT_ISSUER` / `JWT_AUDIENCE` による発行元・対象検証
-  - クロックトレランス: 5秒
+- **OIDCトークン検証**:
+  - JWKS の `kid` を参照して公開鍵を取得（キャッシュ・ローテーション対応）
+  - `iss` / `aud` / `exp` クレームの検証 + 5秒のクロックトレランス
+  - 検証失敗は WARN ログを残して接続を拒否
 - **Origin検証**:
   - `ALLOWED_WS_ORIGIN` 環境変数必須
   - Origin ヘッダーが一致しない接続は拒否（1008: Policy Violation）
@@ -169,18 +174,16 @@ websocketFramework/
   - 認証済み接続: 30分
   - メッセージ受信または pong で自動リセット
 - **本番環境制約**:
-  - `NODE_ENV=production` で `JWT_SECRET=dev-secret` の場合は起動エラー
+  - `NODE_ENV=production` で OIDC 関連の必須環境変数が未設定の場合は起動エラー
 
 ### API セキュリティ
 - **レート制限**:
   - 全RPCエンドポイント: 60 req/min/ユーザー（匿名は `anon` キー）
-  - `auth.login`: 15分間で10回まで + 一律 300ms 遅延（タイミング攻撃対策）
   - 環境変数で設定可能
   - メモリリーク対策: 5分毎の自動クリーンアップ
 - **監査ログ**:
   - 記録内容: userId/anon, path, type, 処理時間（ms）、エラーコード
   - PII（個人識別情報）は記録しない
-  - パスワードは自動的にマスク（`***`）
 - **入力検証**:
   - Zod による厳格な型検証
   - 長さ制限: title ≤ 200文字、body ≤ 5000文字
@@ -320,19 +323,33 @@ pnpm install
 # .env.example をコピーして .env を作成
 cp .env.example .env
 
-# JWT_SECRET を強固なものに変更（32文字以上）
-openssl rand -base64 32  # この出力を .env の JWT_SECRET に設定
+# OIDC 設定を環境に合わせて更新
+cp apps/web/.env.example apps/web/.env
+vim .env apps/web/.env  # Issuer / Client ID / Redirect URI などを設定
 ```
 
 `.env` の例:
+`.env` の例（API）:
 ```env
 DATABASE_URL="file:./dev.db"
-JWT_SECRET="your-generated-secret-here-32-chars-minimum"
 PORT=3001
-ALLOWED_WS_ORIGIN="http://localhost:5173"
-JWT_ISSUER="websocket-framework"
-JWT_AUDIENCE="websocket-framework-api"
+ALLOWED_WS_ORIGIN="http://localhost:8000"
+ALLOWED_HTTP_ORIGIN="http://localhost:8000"
+OIDC_ISSUER="https://tenant.example.com/"
+OIDC_CLIENT_ID="your-client-id"
+OIDC_CLIENT_SECRET="your-client-secret"
+OIDC_REDIRECT_URI="http://localhost:8000/"
+OIDC_SCOPE="openid profile email offline_access"
 NODE_ENV="development"
+```
+
+`apps/web/.env` の例:
+```env
+VITE_OIDC_AUTHORIZATION_URL="https://tenant.example.com/authorize"
+VITE_OIDC_CLIENT_ID="your-client-id"
+VITE_OIDC_REDIRECT_URI="http://localhost:8000/"
+VITE_OIDC_SCOPE="openid profile email offline_access"
+VITE_OIDC_AUDIENCE="api://default"
 ```
 
 ### 3. データベースのセットアップ
@@ -457,7 +474,7 @@ pnpm dev:web
 
 ### WebSocket 接続エラー
 1. **Origin エラー**: `.env` の `ALLOWED_WS_ORIGIN` がフロントのURLと一致しているか確認
-2. **JWT エラー**: `.env` の `JWT_SECRET` が正しく設定されているか確認
+2. **OIDC 設定エラー**: `.env` の `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_REDIRECT_URI` が正しいか確認
 3. **接続拒否**: サーバが起動しているか確認（`pnpm dev:api`）
 
 ### データベースエラー
@@ -471,7 +488,7 @@ pnpm db:push
 
 ## アーキテクチャのポイント
 - **WS-only tRPC**: フロントは REST ライクに `query/mutation` を呼ぶが、実体は持続的な WebSocket 接続
-- **JWT認証**: WebSocket Subprotocol `['bearer', token]` で認証情報を送信（再接続時も自明）
+- **OIDC認証**: WebSocket Subprotocol `['bearer', token]` でアクセストークンを送信（再接続時も自明）
 - **依存性注入**: tsyringe による DI/IoC で疎結合な設計
 - **構造化ログ**: JSON形式のログで監視・分析を容易化
 - **型安全性**: tRPC により API の型情報をフロント・バックエンドで共有
@@ -480,7 +497,7 @@ pnpm db:push
 - **OpenAPI**: trpc-openapi による自動ドキュメント生成
 
 ## セキュリティベストプラクティス
-- ✅ 本番では強固な `JWT_SECRET` を使用（32文字以上）
+- ✅ 本番では OIDC クライアント設定・シークレットを安全に管理（Secrets Manager 等を利用）
 - ✅ 本番運用は TLS 終端 + `wss://` を利用
 - ✅ 入力は Zod で検証、テキストは保存前にサニタイズ
 - ✅ Origin検証を必ず有効化（`ALLOWED_WS_ORIGIN`）

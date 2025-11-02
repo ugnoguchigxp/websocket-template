@@ -21,6 +21,16 @@ export default defineConfig({
 	server: {
 		host: true,
 		port: 5173,
+		proxy: {
+			'/auth': {
+				target: 'http://localhost:3001',
+				changeOrigin: true,
+			},
+			'/api': {
+				target: 'http://localhost:3001',
+				changeOrigin: true,
+			},
+		},
 		headers: {
 			"X-Content-Type-Options": "nosniff",
 			"X-Frame-Options": "DENY",

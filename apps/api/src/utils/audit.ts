@@ -4,19 +4,45 @@
 
 import { logger } from "../modules/logger/core/logger.js";
 
-export function redactInput(path: string, input: unknown) {
-	if (!input) return undefined;
-	try {
-		if (
-			path === "auth.login" &&
-			typeof input === "object" &&
-			input !== null &&
-			"username" in input
-		) {
-			const { username } = input as { username: string; password: string };
-			return { username, password: "***" };
+const SENSITIVE_KEYS = new Set([
+	"password",
+	"passphrase",
+	"code",
+	"codeVerifier",
+	"refreshToken",
+	"token",
+	"clientSecret",
+]);
+
+function redactValue(value: unknown): unknown {
+	if (!value || typeof value !== "object") {
+		return value;
+	}
+
+	if (value instanceof Date) {
+		return value.toISOString();
+}
+
+	if (Array.isArray(value)) {
+		return value.map((item) => redactValue(item));
+	}
+
+	const entries = Object.entries(value as Record<string, unknown>).map(([key, val]) => {
+		if (SENSITIVE_KEYS.has(key)) {
+			return [key, "***"];
 		}
-		return input;
+		return [key, redactValue(val)];
+	});
+
+	return Object.fromEntries(entries);
+}
+
+export function redactInput(_path: string, input: unknown) {
+	if (input === undefined || input === null) {
+		return undefined;
+	}
+	try {
+		return redactValue(input);
 	} catch {
 		return undefined;
 	}
@@ -29,7 +55,7 @@ export function createAuditMiddleware() {
 		try {
 			const res = await next();
 			logger.info("RPC call succeeded", {
-				userId: ctx.userId ?? "anon",
+				userId: ctx.user?.sub ?? "anon",
 				path,
 				type,
 				input: redacted,
@@ -42,7 +68,7 @@ export function createAuditMiddleware() {
 			const message =
 				e && typeof e === "object" && "message" in e ? String(e.message) : "Unknown error";
 			logger.error("RPC call failed", {
-				userId: ctx.userId ?? "anon",
+				userId: ctx.user?.sub ?? "anon",
 				path,
 				type,
 				input: redacted,

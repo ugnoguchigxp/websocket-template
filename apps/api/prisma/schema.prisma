@@ -17,6 +17,9 @@ datasource db {
 
 model User {
   id            Int            @id @default(autoincrement())
+  externalId    String?        @unique
+  email         String?        @unique
+  displayName   String?
   username      String         @unique
   passwordHash  String
   role          String         @default("USER")
@@ -55,6 +58,7 @@ model RefreshToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
   jti       String?  @unique // JWT ID for Token Replay Attack prevention (nullable for migration)
+  tokenType String   @default("local") // "local" or "oidc"
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
@@ -64,4 +68,5 @@ model RefreshToken {
   @@index([expiresAt])
   @@index([jti])
   @@index([userId, expiresAt]) // Composite index for cleanup queries
+  @@index([tokenType])
 }

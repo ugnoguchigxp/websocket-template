@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockEnv } from "./helpers/test-utils.js";
 
 describe("Prisma Module Tests", () => {
 	beforeEach(() => {
-		mockEnv();
 		vi.resetModules();
 	});
 

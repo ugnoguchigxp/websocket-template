@@ -1,16 +1,20 @@
 import "reflect-metadata";
 import * as fs from "fs";
-import type { IncomingMessage } from "http";
+import type { IncomingMessage, ServerResponse } from "http";
 import * as http from "http";
 import * as https from "https";
-import { parse } from "url";
-import type { PrismaClient } from "@prisma/client";
+import { randomBytes, randomUUID } from "crypto";
+import { URL } from "url";
+import argon2 from "argon2";
+import type { Prisma, PrismaClient, RefreshToken, User } from "@prisma/client";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { inject, injectable } from "tsyringe";
+import { z } from "zod";
 import { type WebSocket, WebSocketServer } from "ws";
+import type { AccessTokenClaims, IdTokenClaims } from "./JwtService.js";
 import { JwtService } from "./JwtService.js";
 import { logger } from "./modules/logger/core/logger.js";
-import type { Context } from "./routers/index.js";
+import type { Context, ContextUser } from "./routers/index.js";
 
 // Extend WebSocket type to include isAlive property
 interface ExtendedWebSocket extends WebSocket {
@@ -24,11 +28,36 @@ const HEARTBEAT_INTERVAL_MS = 30_000; // 30 seconds
 
 @injectable()
 export class ServerApp {
+	private readonly refreshCookieName = process.env.OIDC_REFRESH_COOKIE_NAME || "refresh_session";
+	private readonly refreshCookiePath = process.env.OIDC_REFRESH_COOKIE_PATH || "/";
+	private readonly refreshCookieDomain = process.env.OIDC_REFRESH_COOKIE_DOMAIN;
+	private readonly refreshCookieSecure: boolean;
+	private readonly refreshCookieSameSite: "Strict" | "Lax" | "None";
+	private readonly maxAuthBodyBytes = Number.parseInt(
+		process.env.OIDC_MAX_AUTH_BODY_BYTES || "1048576",
+		10
+	);
+
 	constructor(
 		@inject("Prisma") private readonly prisma: PrismaClient,
-		@inject("JWT_SECRET") private readonly jwtSecret: string,
 		@inject(JwtService) private readonly jwtService: JwtService
-	) {}
+	) {
+		this.refreshCookieSecure =
+			process.env.OIDC_REFRESH_COOKIE_SECURE?.toLowerCase() !== "false"
+				? true
+				: process.env.NODE_ENV === "production";
+
+		this.refreshCookieSameSite = this.resolveSameSite(
+			process.env.OIDC_REFRESH_COOKIE_SAMESITE
+		);
+
+		if (this.refreshCookieSameSite === "None" && !this.refreshCookieSecure) {
+			logger.warn(
+				"SameSite=None requires Secure cookies; enabling Secure flag automatically for refresh cookie"
+			);
+			this.refreshCookieSecure = true;
+		}
+	}
 
 	/**
 	 * Extract JWT token from WebSocket request headers or URL query parameter
@@ -44,15 +73,769 @@ export class ServerApp {
 		}
 
 		// Fallback: check URL query parameter (for backwards compatibility)
-		const url = parse(req.url || "", true);
-		return (url.query?.token as string) || "";
+		try {
+			const host = req.headers.host ?? "localhost";
+			const url = new URL(req.url || "", `http://${host}`);
+			return url.searchParams.get("token") ?? "";
+		} catch {
+			return "";
+		}
+	}
+
+	private resolveSameSite(value?: string | null): "Strict" | "Lax" | "None" {
+		const normalized = (value ?? "").toLowerCase();
+		switch (normalized) {
+			case "strict":
+				return "Strict";
+			case "none":
+				return "None";
+			default:
+				return "Lax";
+		}
+	}
+
+	private applyCors(
+		res: ServerResponse,
+		origin: string | undefined,
+		allowedOrigin: string
+	): boolean {
+		res.setHeader("Vary", "Origin");
+		res.setHeader("Access-Control-Allow-Credentials", "true");
+		res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+		res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+
+		if (allowedOrigin === "*") {
+			res.setHeader("Access-Control-Allow-Origin", origin ?? "*");
+			return true;
+		}
+
+		if (origin && origin !== allowedOrigin) {
+			this.sendJson(res, 403, { error: "Origin not allowed" });
+			return false;
+		}
+
+		res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+		return true;
+	}
+
+	private handleOptions(res: ServerResponse) {
+		res.statusCode = 204;
+		res.end();
+	}
+
+	private sendJson(res: ServerResponse, status: number, payload: unknown) {
+		if (!res.headersSent) {
+			res.statusCode = status;
+			res.setHeader("Content-Type", "application/json");
+		}
+		res.end(JSON.stringify(payload));
+	}
+
+	private parseCookies(req: IncomingMessage): Record<string, string> {
+		const header = req.headers.cookie;
+		if (!header) {
+			return {};
+		}
+		const out: Record<string, string> = {};
+		const cookies = header.split(";");
+		for (const cookie of cookies) {
+			const [rawName, ...rest] = cookie.trim().split("=");
+			if (!rawName) continue;
+			const value = rest.join("=") ?? "";
+			out[rawName] = decodeURIComponent(value);
+		}
+		return out;
+	}
+
+	private appendSetCookie(res: ServerResponse, value: string) {
+		const existing = res.getHeader("Set-Cookie");
+		if (!existing) {
+			res.setHeader("Set-Cookie", value);
+		} else if (Array.isArray(existing)) {
+			res.setHeader("Set-Cookie", [...existing, value]);
+		} else {
+			res.setHeader("Set-Cookie", [existing.toString(), value]);
+		}
+	}
+
+	private setRefreshCookie(res: ServerResponse, sessionId: string, expiresAt: Date) {
+		const maxAgeSeconds = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+		const parts = [
+			`${this.refreshCookieName}=${encodeURIComponent(sessionId)}`,
+			`Path=${this.refreshCookiePath}`,
+			`Max-Age=${maxAgeSeconds}`,
+			`Expires=${expiresAt.toUTCString()}`,
+			`SameSite=${this.refreshCookieSameSite}`,
+			"HttpOnly",
+		];
+		if (this.refreshCookieSecure) {
+			parts.push("Secure");
+		}
+		if (this.refreshCookieDomain) {
+			parts.push(`Domain=${this.refreshCookieDomain}`);
+		}
+		this.appendSetCookie(res, parts.join("; "));
+	}
+
+	private clearRefreshCookie(res: ServerResponse) {
+		const expires = new Date(0);
+		const parts = [
+			`${this.refreshCookieName}=`,
+			`Path=${this.refreshCookiePath}`,
+			"Max-Age=0",
+			`Expires=${expires.toUTCString()}`,
+			`SameSite=${this.refreshCookieSameSite}`,
+			"HttpOnly",
+		];
+		if (this.refreshCookieSecure) {
+			parts.push("Secure");
+		}
+		if (this.refreshCookieDomain) {
+			parts.push(`Domain=${this.refreshCookieDomain}`);
+		}
+		this.appendSetCookie(res, parts.join("; "));
+	}
+
+	private async readJsonBody<T>(req: IncomingMessage): Promise<T> {
+		const chunks: Uint8Array[] = [];
+		let received = 0;
+
+		for await (const chunk of req) {
+			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+			received += buffer.length;
+			if (received > this.maxAuthBodyBytes) {
+				throw new Error("Request body too large");
+			}
+			chunks.push(buffer);
+		}
+
+		const raw = Buffer.concat(chunks).toString("utf8").trim();
+		if (!raw) {
+			return {} as T;
+		}
+		try {
+			return JSON.parse(raw) as T;
+		} catch (error) {
+			throw new Error("Invalid JSON payload");
+		}
+	}
+
+	private sanitizeUsernameCandidate(candidate: string | undefined | null): string | null {
+		if (!candidate) {
+			return null;
+		}
+		const sanitized = candidate
+			.trim()
+			.replace(/[^A-Za-z0-9._-]/g, "_")
+			.replace(/_+/g, "_")
+			.replace(/\._+/g, ".")
+			.replace(/_+\./g, ".")
+			.replace(/_{2,}/g, "_")
+			.slice(0, 50);
+
+		const cleaned = sanitized.replace(/^[_\.]+|[_\.]+$/g, "");
+		return cleaned.length > 2 ? cleaned : null;
+	}
+
+	private async ensureUniqueUsername(base: string): Promise<string> {
+		let candidate = base;
+		let attempt = 1;
+		while (true) {
+			const existing = await this.prisma.user.findUnique({ where: { username: candidate } });
+			if (!existing) {
+				return candidate;
+			}
+			const suffix = `-${attempt}`;
+			const trimmed = base.slice(0, Math.max(1, 50 - suffix.length));
+			candidate = `${trimmed}${suffix}`;
+			attempt += 1;
+			if (attempt > 1000) {
+				const fallback = `user-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+				return fallback;
+			}
+		}
+	}
+
+	private async generateUsername(
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): Promise<string> {
+		const candidates: Array<string | undefined | null> = [
+			idTokenClaims?.preferred_username ?? null,
+			(claims as Record<string, unknown>).preferred_username as string | undefined,
+			idTokenClaims?.email ? idTokenClaims.email.split("@")[0] : null,
+			typeof (claims as Record<string, unknown>).email === "string"
+				? ((claims as Record<string, string>).email ?? "").split("@")[0]
+				: null,
+			claims.sub.replace(/[^A-Za-z0-9]/g, ""),
+		];
+
+		for (const candidate of candidates) {
+			const sanitized = this.sanitizeUsernameCandidate(candidate ?? undefined);
+			if (!sanitized) continue;
+			return this.ensureUniqueUsername(sanitized);
+		}
+
+		return this.ensureUniqueUsername(`user-${randomUUID().slice(0, 8)}`);
+	}
+
+	private extractEmail(
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): string | null {
+		const claimEmail =
+			typeof (claims as Record<string, unknown>).email === "string"
+				? ((claims as Record<string, string>).email as string)
+				: null;
+		const idEmail = idTokenClaims?.email ?? null;
+		return idEmail ?? claimEmail;
+	}
+
+	private extractDisplayName(
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): string | null {
+		const nameField =
+			typeof (claims as Record<string, unknown>).name === "string"
+				? ((claims as Record<string, string>).name as string)
+				: null;
+		return idTokenClaims?.name ?? nameField;
+	}
+
+	private async provisionUser(
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): Promise<User> {
+		const existing = await this.prisma.user.findFirst({
+			where: { externalId: claims.sub },
+		});
+
+		const email = this.extractEmail(claims, idTokenClaims);
+		const displayName = this.extractDisplayName(claims, idTokenClaims);
+
+		if (existing) {
+			return this.updateUserProfile(existing, email, displayName);
+		}
+
+		const username = await this.generateUsername(claims, idTokenClaims);
+		const passwordHash = await argon2.hash(randomBytes(32).toString("hex"));
+
+		return this.prisma.user.create({
+			data: {
+				externalId: claims.sub,
+				username,
+				passwordHash,
+				email: email ?? undefined,
+				displayName: displayName ?? undefined,
+			},
+		});
+	}
+
+	private async updateUserProfile(
+		user: User,
+		email: string | null,
+		displayName: string | null
+	): Promise<User> {
+		const data: Prisma.UserUpdateInput = {};
+		if (email !== null && email !== user.email) {
+			data.email = email;
+		}
+		if (displayName !== null && displayName !== user.displayName) {
+			data.displayName = displayName;
+		}
+		if (Object.keys(data).length === 0) {
+			return user;
+		}
+		return this.prisma.user.update({
+			where: { id: user.id },
+			data,
+		});
+	}
+
+	private extractRoles(
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): string[] {
+		const roles = new Set<string>();
+
+		const collect = (value: unknown) => {
+			if (!value) return;
+			if (Array.isArray(value)) {
+				for (const item of value) {
+					if (typeof item === "string" && item) roles.add(item);
+				}
+			} else if (typeof value === "string" && value) {
+				for (const item of value.split(" ")) {
+					if (item) roles.add(item);
+				}
+			}
+		};
+
+		collect((claims as Record<string, unknown>).roles);
+		const realmAccess = (claims as Record<string, unknown>).realm_access as
+			| { roles?: string[] }
+			| undefined;
+		if (realmAccess && Array.isArray(realmAccess.roles)) {
+			collect(realmAccess.roles);
+		}
+		collect((claims as Record<string, unknown>)["cognito:groups"]);
+		collect(idTokenClaims?.roles);
+
+		return Array.from(roles);
+	}
+
+	private buildContextUser(
+		user: User,
+		claims: AccessTokenClaims,
+		idTokenClaims?: IdTokenClaims | null
+	): ContextUser {
+		const email = this.extractEmail(claims, idTokenClaims) ?? user.email ?? null;
+		const preferredUsername =
+			idTokenClaims?.preferred_username ??
+			((claims as Record<string, unknown>).preferred_username as string | undefined) ??
+			null;
+		const name = this.extractDisplayName(claims, idTokenClaims) ?? user.displayName ?? null;
+
+		return {
+			sub: claims.sub,
+			localUserId: user.id,
+			roles: this.extractRoles(claims, idTokenClaims),
+			email,
+			preferredUsername,
+			name,
+			claims,
+		};
+	}
+
+	private async persistRefreshSession(
+		userId: number,
+		refreshToken: string,
+		expiresAt: Date,
+		tokenType: "local" | "oidc" = "local"
+	): Promise<{ sessionId: string; expiresAt: Date }> {
+		const sessionId = randomUUID();
+		await this.prisma.refreshToken.create({
+			data: {
+				userId,
+				token: refreshToken,
+				expiresAt,
+				jti: sessionId,
+				tokenType,
+			},
+		});
+		return { sessionId, expiresAt };
+	}
+
+	private async findRefreshSession(sessionId: string): Promise<RefreshToken | null> {
+		return this.prisma.refreshToken.findUnique({
+			where: { jti: sessionId },
+		});
+	}
+
+	private async deleteRefreshSession(sessionId: string): Promise<void> {
+		await this.prisma.refreshToken.deleteMany({
+			where: { jti: sessionId },
+		});
+	}
+
+	private async handleAuthExchange(req: IncomingMessage, res: ServerResponse) {
+		try {
+			const body = await this.readJsonBody<unknown>(req);
+			const schema = z.object({
+				code: z.string().min(1),
+				codeVerifier: z.string().min(1),
+				redirectUri: z.string().url().optional(),
+				state: z.string().optional(),
+			});
+			const input = schema.parse(body);
+
+			const tokens = await this.jwtService.exchangeAuthorizationCode({
+				code: input.code,
+				codeVerifier: input.codeVerifier,
+				redirectUri: input.redirectUri,
+			});
+
+			if (!tokens.refreshToken || !tokens.refreshTokenExpiresAt) {
+				logger.error("OIDC exchange response missing refresh token");
+				this.sendJson(res, 502, { error: "Identity provider did not return a refresh token" });
+				return;
+			}
+
+			const user = await this.provisionUser(tokens.accessTokenClaims, tokens.idTokenClaims);
+			const contextUser = this.buildContextUser(
+				user,
+				tokens.accessTokenClaims,
+				tokens.idTokenClaims
+			);
+			const { sessionId, expiresAt } = await this.persistRefreshSession(
+				user.id,
+				tokens.refreshToken,
+				tokens.refreshTokenExpiresAt,
+				"oidc"
+			);
+
+			this.setRefreshCookie(res, sessionId, expiresAt);
+
+			this.sendJson(res, 200, {
+				accessToken: tokens.accessToken,
+				accessTokenExpiresAt: tokens.accessTokenExpiresAt.toISOString(),
+				scope: tokens.scope ?? null,
+				user: {
+					id: user.id,
+					username: user.username,
+					role: user.role,
+					email: user.email ?? null,
+					displayName: user.displayName ?? null,
+					sub: contextUser.sub,
+					preferredUsername: contextUser.preferredUsername ?? null,
+					name: contextUser.name ?? null,
+					roles: contextUser.roles,
+				},
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				this.sendJson(res, 400, { error: "Invalid request", details: error.errors });
+				return;
+			}
+			logger.error("Authorization code exchange failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			this.sendJson(res, 502, { error: "Failed to exchange authorization code" });
+		}
+	}
+
+	private async handleAuthRefresh(req: IncomingMessage, res: ServerResponse) {
+		const cookies = this.parseCookies(req);
+		const sessionId = cookies[this.refreshCookieName];
+
+		if (!sessionId) {
+			this.clearRefreshCookie(res);
+			this.sendJson(res, 401, { error: "Refresh session not found" });
+			return;
+		}
+
+		let session: RefreshToken | null = null;
+		try {
+			session = await this.findRefreshSession(sessionId);
+		} catch (error) {
+			logger.error("Failed to look up refresh session", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		if (!session) {
+			this.clearRefreshCookie(res);
+			this.sendJson(res, 401, { error: "Refresh session not found" });
+			return;
+		}
+
+		if (session.expiresAt.getTime() <= Date.now()) {
+			await this.deleteRefreshSession(sessionId);
+			this.clearRefreshCookie(res);
+			this.sendJson(res, 401, { error: "Refresh session expired" });
+			return;
+		}
+
+		let user = await this.prisma.user.findUnique({ where: { id: session.userId } });
+		if (!user) {
+			await this.deleteRefreshSession(sessionId);
+			this.clearRefreshCookie(res);
+			this.sendJson(res, 401, { error: "User not found" });
+			return;
+		}
+
+		try {
+			// Check token type to determine authentication flow
+			const isLocalSession = session.tokenType === "local";
+			
+			if (isLocalSession) {
+				// Local authentication - issue new access token
+				const accessTokenClaims: AccessTokenClaims = {
+					sub: user.externalId || `local:${user.id}`,
+					aud: process.env.OIDC_AUDIENCE || "api://default",
+					iss: process.env.OIDC_ISSUER || "local",
+					exp: Math.floor(Date.now() / 1000) + 3600,
+					iat: Math.floor(Date.now() / 1000),
+					scope: "openid profile email",
+				};
+
+				const accessToken = this.jwtService.signAccessToken(accessTokenClaims);
+				const accessTokenExpiresAt = new Date(accessTokenClaims.exp * 1000);
+
+				this.setRefreshCookie(res, sessionId, session.expiresAt);
+
+				this.sendJson(res, 200, {
+					accessToken,
+					accessTokenExpiresAt: accessTokenExpiresAt.toISOString(),
+					scope: accessTokenClaims.scope,
+					user: {
+						id: user.id,
+						username: user.username,
+						role: user.role,
+						email: user.email ?? null,
+						displayName: user.displayName ?? null,
+						sub: accessTokenClaims.sub,
+						preferredUsername: user.username,
+						name: user.displayName ?? null,
+						roles: [user.role],
+					},
+				});
+			} else {
+				// OIDC authentication - refresh with IdP
+				const tokens = await this.jwtService.refreshAccessToken(session.token);
+
+				const newRefreshToken = tokens.refreshToken ?? session.token;
+				const newExpiresAt = tokens.refreshTokenExpiresAt ?? session.expiresAt;
+
+				await this.prisma.refreshToken.updateMany({
+					where: { jti: sessionId },
+					data: {
+						token: newRefreshToken,
+						expiresAt: newExpiresAt,
+					},
+				});
+
+				const email = this.extractEmail(tokens.accessTokenClaims, tokens.idTokenClaims);
+				const displayName = this.extractDisplayName(
+					tokens.accessTokenClaims,
+					tokens.idTokenClaims
+				);
+				user = await this.updateUserProfile(user, email, displayName);
+
+				const contextUser = this.buildContextUser(
+					user,
+					tokens.accessTokenClaims,
+					tokens.idTokenClaims
+				);
+
+				this.setRefreshCookie(res, sessionId, newExpiresAt);
+
+				this.sendJson(res, 200, {
+					accessToken: tokens.accessToken,
+					accessTokenExpiresAt: tokens.accessTokenExpiresAt.toISOString(),
+					scope: tokens.scope ?? null,
+					user: {
+						id: user.id,
+						username: user.username,
+						role: user.role,
+						email: user.email ?? null,
+						displayName: user.displayName ?? null,
+						sub: contextUser.sub,
+						preferredUsername: contextUser.preferredUsername ?? null,
+						name: contextUser.name ?? null,
+						roles: contextUser.roles,
+					},
+				});
+			}
+		} catch (error) {
+			logger.warn("Refresh token rotation failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			await this.deleteRefreshSession(sessionId);
+			this.clearRefreshCookie(res);
+			this.sendJson(res, 401, { error: "Unable to refresh session" });
+		}
+	}
+
+	private async handleAuthLogin(req: IncomingMessage, res: ServerResponse) {
+		try {
+			const body = await this.readJsonBody<unknown>(req);
+			const schema = z.object({
+				username: z.string().min(1),
+				password: z.string().min(1),
+			});
+			const input = schema.parse(body);
+
+			const user = await this.prisma.user.findUnique({
+				where: { username: input.username },
+			});
+
+			if (!user) {
+				logger.warn("Login failed: user not found", {
+					username: input.username,
+					ip: req.socket.remoteAddress,
+					method: "local",
+				});
+				this.sendJson(res, 401, { error: "Invalid credentials" });
+				return;
+			}
+
+			const isValidPassword = await argon2.verify(user.passwordHash, input.password);
+			if (!isValidPassword) {
+				logger.warn("Login failed: invalid password", {
+					username: input.username,
+					userId: user.id,
+					ip: req.socket.remoteAddress,
+					method: "local",
+				});
+				this.sendJson(res, 401, { error: "Invalid credentials" });
+				return;
+			}
+
+			logger.info("Login successful", {
+				username: input.username,
+				userId: user.id,
+				ip: req.socket.remoteAddress,
+				method: "local",
+			});
+
+			const accessTokenClaims: AccessTokenClaims = {
+				sub: user.externalId || `local:${user.id}`,
+				aud: process.env.OIDC_AUDIENCE || "api://default",
+				iss: process.env.OIDC_ISSUER || "local",
+				exp: Math.floor(Date.now() / 1000) + 3600,
+				iat: Math.floor(Date.now() / 1000),
+				scope: "openid profile email",
+			};
+
+			const accessToken = this.jwtService.signAccessToken(accessTokenClaims);
+			const accessTokenExpiresAt = new Date(accessTokenClaims.exp * 1000);
+
+			const refreshTokenValue = randomBytes(32).toString("hex");
+			const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+			const { sessionId, expiresAt } = await this.persistRefreshSession(
+				user.id,
+				refreshTokenValue,
+				refreshTokenExpiresAt,
+				"local"
+			);
+
+			this.setRefreshCookie(res, sessionId, expiresAt);
+
+			const contextUser: ContextUser = {
+				sub: accessTokenClaims.sub,
+				localUserId: user.id,
+				roles: [user.role],
+				email: user.email,
+				preferredUsername: user.username,
+				name: user.displayName,
+				claims: accessTokenClaims,
+			};
+
+			this.sendJson(res, 200, {
+				accessToken,
+				accessTokenExpiresAt: accessTokenExpiresAt.toISOString(),
+				scope: accessTokenClaims.scope,
+				user: {
+					id: user.id,
+					username: user.username,
+					role: user.role,
+					email: user.email ?? null,
+					displayName: user.displayName ?? null,
+					sub: contextUser.sub,
+					preferredUsername: user.username,
+					name: user.displayName ?? null,
+					roles: [user.role],
+				},
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				this.sendJson(res, 400, { error: "Invalid request", details: error.errors });
+				return;
+			}
+			logger.error("Login failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			this.sendJson(res, 500, { error: "Failed to process login" });
+		}
+	}
+
+	private async handleAuthLogout(_req: IncomingMessage, res: ServerResponse) {
+		const cookies = this.parseCookies(_req);
+		const sessionId = cookies[this.refreshCookieName];
+		if (sessionId) {
+			const session = await this.findRefreshSession(sessionId);
+			if (session) {
+				try {
+					await this.jwtService.revokeRefreshToken(session.token);
+				} catch (error) {
+					logger.warn("Failed to revoke refresh token", {
+						error: error instanceof Error ? error.message : String(error),
+					});
+				}
+				await this.deleteRefreshSession(sessionId);
+			}
+		}
+
+		this.clearRefreshCookie(res);
+		res.statusCode = 204;
+		res.end();
+	}
+
+	private async handleHttpRequest(
+		req: IncomingMessage,
+		res: ServerResponse,
+		allowedOrigin: string
+	) {
+		try {
+			const upgrade = req.headers.upgrade;
+			if (typeof upgrade === "string" && upgrade.toLowerCase() === "websocket") {
+				// Let WebSocket upgrade handling proceed without interfering
+				return;
+			}
+
+			const method = req.method ?? "GET";
+			const host = req.headers.host ?? "localhost";
+			const url = new URL(req.url || "/", `http://${host}`);
+			const origin = req.headers.origin as string | undefined;
+			const isAuthEndpoint = url.pathname.startsWith("/auth/");
+
+			if (method === "OPTIONS" && isAuthEndpoint) {
+				this.applyCors(res, origin, allowedOrigin);
+				this.handleOptions(res);
+				return;
+			}
+
+			if (isAuthEndpoint && !this.applyCors(res, origin, allowedOrigin)) {
+				return;
+			}
+
+			if (url.pathname === "/api/health" || url.pathname === "/health") {
+				this.sendJson(res, 200, { status: "ok", timestamp: new Date().toISOString() });
+				return;
+			}
+
+			if (method === "POST" && url.pathname === "/auth/login") {
+				await this.handleAuthLogin(req, res);
+				return;
+			}
+
+			if (method === "POST" && url.pathname === "/auth/exchange") {
+				await this.handleAuthExchange(req, res);
+				return;
+			}
+
+			if (method === "POST" && url.pathname === "/auth/refresh") {
+				await this.handleAuthRefresh(req, res);
+				return;
+			}
+
+			if (method === "POST" && url.pathname === "/auth/logout") {
+				await this.handleAuthLogout(req, res);
+				return;
+			}
+
+			res.statusCode = 404;
+			res.end();
+		} catch (error) {
+			logger.error("HTTP request handling failed", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			if (!res.headersSent) {
+				this.sendJson(res, 500, { error: "Internal server error" });
+			} else {
+				res.end();
+			}
+		}
 	}
 
 	public async start(port: number) {
-		const ALLOWED_ORIGIN = process.env.ALLOWED_WS_ORIGIN;
-		if (!ALLOWED_ORIGIN) {
+		const allowedWsOrigin = process.env.ALLOWED_WS_ORIGIN;
+		if (!allowedWsOrigin) {
 			throw new Error("ALLOWED_WS_ORIGIN must be set. See .env.example");
 		}
+		const allowedHttpOrigin = process.env.ALLOWED_HTTP_ORIGIN || allowedWsOrigin;
 		const MAX_CONNECTIONS = Number.parseInt(process.env.MAX_WS_CONNECTIONS || "1000", 10);
 
 		// Import appRouter dynamically to ensure environment variables are loaded first
@@ -81,15 +864,9 @@ export class ServerApp {
 			server = http.createServer();
 		}
 
-		// Handle HTTP requests for health check
+		// Handle HTTP requests (health check + auth endpoints)
 		server.on("request", (req, res) => {
-			if (req.url === "/api/health" || req.url === "/health") {
-				res.writeHead(200, { "Content-Type": "application/json" });
-				res.end(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }));
-			} else {
-				res.writeHead(404);
-				res.end();
-			}
+			void this.handleHttpRequest(req, res, allowedHttpOrigin);
 		});
 
 		const wss = new WebSocketServer({
@@ -119,7 +896,7 @@ export class ServerApp {
 
 			// Origin allowlist (close early if not allowed)
 			const origin = req.headers.origin as string | undefined;
-			if (origin && origin !== ALLOWED_ORIGIN) {
+			if (origin && origin !== allowedWsOrigin) {
 				try {
 					socket.close(1008, "Origin not allowed");
 				} catch (error) {
@@ -261,16 +1038,26 @@ export class ServerApp {
 	}
 
 	private async createContextFromReq(req: IncomingMessage): Promise<Context> {
-		// Extract token using shared method
 		const token = this.extractToken(req);
-
-		let userId: string | null = null;
-		if (token) {
-			// Use JwtService for verification
-			userId = await this.jwtService.verify(token);
-		} else {
-			logger.debug("No JWT token provided");
+		if (!token) {
+			logger.debug("No access token provided");
+			return { user: null, prisma: this.prisma, accessToken: null };
 		}
-		return { userId, prisma: this.prisma, jwtSecret: this.jwtSecret };
+
+		const claims = await this.jwtService.verifyAccessToken(token);
+		if (!claims) {
+			return { user: null, prisma: this.prisma, accessToken: null };
+		}
+
+		try {
+			const user = await this.provisionUser(claims);
+			const contextUser = this.buildContextUser(user, claims);
+			return { user: contextUser, prisma: this.prisma, accessToken: token };
+		} catch (error) {
+			logger.error("Failed to prepare context user from access token", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return { user: null, prisma: this.prisma, accessToken: null };
+		}
 	}
 }

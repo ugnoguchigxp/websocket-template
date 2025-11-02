@@ -3,22 +3,37 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import { container } from "tsyringe";
+import { JwtService } from "./JwtService.js";
+import { DbInitializer } from "./db.js";
+import { logger } from "./modules/logger/core/logger.js";
+import { prisma } from "./prisma.js";
+import { ServerApp } from "./server.js";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
 config({ path: path.resolve(path.dirname(__filename), "../../../.env") });
 
-// Validate JWT_SECRET
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-	throw new Error("JWT_SECRET must be set and at least 32 characters long");
+// OIDC settings are optional now - only required if using external OIDC provider
+const optionalOidcVars = ["OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_REDIRECT_URI"] as const;
+const hasOidcConfig = optionalOidcVars.every((key) => !!process.env[key]);
+
+if (!hasOidcConfig) {
+	logger.info("OIDC configuration not found - using local authentication only");
 }
 
-import { JwtService } from "./JwtService.js";
-import { DbInitializer } from "./db.js";
-// Import and start the application
-import { logger } from "./modules/logger/core/logger.js";
-import { prisma } from "./prisma.js";
-import { ServerApp } from "./server.js";
+// Validate JWT_SECRET for local authentication
+if (!process.env.JWT_SECRET) {
+	throw new Error(
+		"JWT_SECRET environment variable must be set. " +
+		"Generate a secure random string (minimum 32 characters)."
+	);
+}
+
+const parseOptionalInt = (value: string | undefined): number | undefined => {
+	if (!value) return undefined;
+	const parsed = Number.parseInt(value, 10);
+	return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 async function main() {
 	try {
@@ -26,15 +41,30 @@ async function main() {
 
 		// Register dependencies
 		container.register("Prisma", { useValue: prisma });
-		container.register("JWT_SECRET", { useValue: process.env.JWT_SECRET as string });
 		container.register(JwtService, {
-			useFactory: () => new JwtService(process.env.JWT_SECRET as string),
+			useFactory: () =>
+				new JwtService({
+					issuer: process.env.OIDC_ISSUER || "local",
+					clientId: process.env.OIDC_CLIENT_ID || "local-client",
+					redirectUri: process.env.OIDC_REDIRECT_URI || "http://localhost:5173/",
+					audience: process.env.OIDC_AUDIENCE,
+					clientSecret: process.env.OIDC_CLIENT_SECRET,
+					jwksUriOverride: process.env.OIDC_JWKS_URI,
+					tokenEndpointOverride: process.env.OIDC_TOKEN_ENDPOINT,
+					userinfoEndpointOverride: process.env.OIDC_USERINFO_ENDPOINT,
+					revocationEndpointOverride: process.env.OIDC_REVOCATION_ENDPOINT,
+					defaultRefreshTokenTtlSeconds: parseOptionalInt(
+						process.env.OIDC_REFRESH_TOKEN_TTL_SECONDS
+					),
+					jwksTtlSeconds: parseOptionalInt(process.env.OIDC_JWKS_TTL_SECONDS),
+					discoveryTtlSeconds: parseOptionalInt(process.env.OIDC_DISCOVERY_TTL_SECONDS),
+				}),
 		});
 		container.register(DbInitializer, { useFactory: () => new DbInitializer(prisma) });
 		container.register(ServerApp, {
 			useFactory: () => {
 				const jwtService = container.resolve(JwtService);
-				return new ServerApp(prisma, process.env.JWT_SECRET as string, jwtService);
+				return new ServerApp(prisma, jwtService);
 			},
 		});
 

@@ -19,22 +19,39 @@ export class EnvironmentService implements IEnvironmentService {
 
 	validateEnvironment(): void {
 		const NODE_ENV = process.env.NODE_ENV || "development";
-		const JWT_SECRET = process.env.JWT_SECRET;
 
-		if (!JWT_SECRET || JWT_SECRET.length < 32) {
-			throw new Error("JWT_SECRET must be set and at least 32 characters. See .env.example");
+		const requiredEnv: Record<string, string | undefined> = {
+			OIDC_ISSUER: process.env.OIDC_ISSUER,
+			OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
+			OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
+			OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET,
+			ALLOWED_WS_ORIGIN: process.env.ALLOWED_WS_ORIGIN,
+		};
+
+		for (const [key, value] of Object.entries(requiredEnv)) {
+			if (!value || value.trim().length === 0) {
+				throw new Error(`${key} must be set. See .env.example`);
+			}
+		}
+
+		if (!process.env.ALLOWED_HTTP_ORIGIN && NODE_ENV !== "production") {
+			logger.warn(
+				"ALLOWED_HTTP_ORIGIN is not set; falling back to ALLOWED_WS_ORIGIN for /auth endpoints"
+			);
+			process.env.ALLOWED_HTTP_ORIGIN = process.env.ALLOWED_WS_ORIGIN;
 		}
 
 		if (NODE_ENV === "development") {
 			logger.debug("Environment variables loaded", {
-				hasIssuer: !!process.env.JWT_ISSUER,
-				hasAudience: !!process.env.JWT_AUDIENCE,
+				hasIssuer: !!process.env.OIDC_ISSUER,
+				hasAudience: !!process.env.OIDC_AUDIENCE,
+				hasHttpOrigin: !!process.env.ALLOWED_HTTP_ORIGIN,
 			});
 		}
 
 		if (NODE_ENV === "production") {
-			if (!process.env.ALLOWED_WS_ORIGIN) {
-				throw new Error("ALLOWED_WS_ORIGIN must be set in production");
+			if (!process.env.ALLOWED_HTTP_ORIGIN) {
+				throw new Error("ALLOWED_HTTP_ORIGIN must be set in production");
 			}
 			if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes("dev.db")) {
 				throw new Error("Production DATABASE_URL must not use dev.db");
@@ -44,13 +61,5 @@ export class EnvironmentService implements IEnvironmentService {
 
 	getPort(): number {
 		return Number(process.env.PORT || 3001);
-	}
-
-	getJwtSecret(): string {
-		const secret = process.env.JWT_SECRET;
-		if (!secret || secret.length < 32) {
-			throw new Error("JWT_SECRET must be set and at least 32 characters. See .env.example");
-		}
-		return secret;
 	}
 }
