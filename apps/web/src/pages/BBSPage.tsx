@@ -17,6 +17,11 @@ export function BBSPage() {
 	const { t } = useTranslation()
 	const { showSuccess, showError } = useNotificationContext()
 	
+	// Debug: tRPC context確認
+	React.useEffect(() => {
+		log.debug("BBSPage mounted, checking tRPC context")
+	}, [])
+	
 	// Table state
 	const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -24,8 +29,24 @@ export function BBSPage() {
 	// Posts data
 	const posts = api.posts.list.useQuery(
 		{ limit: 50 },
-		{ staleTime: 60_000, refetchOnWindowFocus: false }
+		{ 
+			staleTime: 60_000, 
+			refetchOnWindowFocus: false,
+		}
 	)
+	
+	// Debug: データ取得状態をログ出力
+	React.useEffect(() => {
+		log.debug("Posts query state", {
+			isLoading: posts.isLoading,
+			isFetching: posts.isFetching,
+			isSuccess: posts.isSuccess,
+			isError: posts.isError,
+			dataCount: posts.data?.items?.length ?? 0,
+			data: posts.data, // データ全体を確認
+			error: posts.error?.message,
+		})
+	}, [posts.isLoading, posts.isFetching, posts.isSuccess, posts.data, posts.error])
 	
 	// UI state
 	const [selectedPostId, setSelectedPostId] = useState<number | null>(null)
@@ -234,10 +255,18 @@ export function BBSPage() {
 				</div>
 
 				{/* Enhanced Thread List */}
+				{posts.isError && (
+					<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+						<p className="font-mono text-red-800">
+							Error loading posts: {posts.error?.message ?? "Unknown error"}
+						</p>
+					</div>
+				)}
+				
 				<Table
 					data={posts.data?.items ?? []}
 					columns={columns}
-					loading={posts.isLoading}
+					loading={posts.isLoading || posts.isFetching}
 					emptyMessage={t("no_posts")}
 					enableSelection={false}
 					enableSorting={true}

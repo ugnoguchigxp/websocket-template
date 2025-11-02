@@ -1,11 +1,12 @@
 import argon2 from "argon2";
+import type { PrismaClient } from "@prisma/client";
 import { injectable } from "tsyringe";
-import type { IDbInitializer } from "./interfaces/IDbService.js";
-import { logger } from "./modules/logger/core/logger.js";
+import type { IDbInitializer } from "../../interfaces/IDbService.js";
+import { logger } from "../../modules/logger/core/logger.js";
 
 @injectable()
 export class DbInitializer implements IDbInitializer {
-	constructor(private prisma: any) {}
+	constructor(private readonly prisma: PrismaClient) {}
 
 	async initialize(): Promise<void> {
 		// Seed admin user if missing
@@ -25,4 +26,4 @@ export class DbInitializer implements IDbInitializer {
 }
 
 // Export types
-export type { IDbInitializer } from "./interfaces/IDbService.js";
+export type { IDbInitializer } from "../../interfaces/IDbService.js";

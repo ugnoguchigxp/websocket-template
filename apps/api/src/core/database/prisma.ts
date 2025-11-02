@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
-import { logger } from "./modules/logger/core/logger.js";
+import { logger } from "../../modules/logger/core/logger.js";
 
 export const prisma = new PrismaClient();
 

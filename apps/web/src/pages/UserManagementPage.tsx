@@ -41,10 +41,20 @@ export function UserManagementPage() {
 	}
 
 	// Users list
-	const users = api.users.list.useQuery({}, { staleTime: 60_000, refetchOnWindowFocus: false })
+	const users = api.users.list.useQuery({}, { 
+		staleTime: 60_000, 
+		refetchOnWindowFocus: false,
+		refetchOnMount: true,
+		refetchOnReconnect: true,
+	})
 
 	// Current user info
-	const currentUser = api.auth.me.useQuery({}, { staleTime: 60_000, refetchOnWindowFocus: false })
+	const currentUser = api.auth.me.useQuery({}, { 
+		staleTime: 60_000, 
+		refetchOnWindowFocus: false,
+		refetchOnMount: true,
+		refetchOnReconnect: true,
+	})
 
 	// Dialog states
 	const [createOpen, setCreateOpen] = useState(false)

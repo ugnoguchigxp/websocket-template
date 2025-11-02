@@ -4,7 +4,7 @@ import argon2 from "argon2";
 import superjson from "superjson";
 import type { OpenApiMeta } from "trpc-openapi";
 import { z } from "zod";
-import type { AccessTokenClaims } from "../JwtService.js";
+import type { AccessTokenClaims } from "../core/auth/index.js";
 import { logger } from "../modules/logger/core/logger.js";
 import { sanitizeText } from "../utils/sanitize.js";
 import { createAuditMiddleware } from "../utils/audit.js";
@@ -223,7 +223,11 @@ export const appRouter = t.router({
 					});
 				}
 				
-				const updateData: any = { username: input.username };
+				const updateData: {
+					username: string;
+					passwordHash?: string;
+					role?: string;
+				} = { username: input.username };
 				if (input.password) {
 					updateData.passwordHash = await argon2.hash(input.password);
 				}
@@ -283,6 +287,7 @@ export const appRouter = t.router({
 				})
 			)
 			.query(async ({ input, ctx }) => {
+				logger.debug("posts.list query started", { input, sub: ctx.user?.sub });
 				const pageSize = input?.limit ?? 20;
 				const posts = await ctx.prisma.post.findMany({
 					orderBy: { id: "desc" },
@@ -297,6 +302,7 @@ export const appRouter = t.router({
 						author: { select: { id: true, username: true } },
 					},
 				});
+				logger.debug("posts.list query completed", { count: posts.length });
 				const nextCursor = posts.length === pageSize ? posts[posts.length - 1]?.id : undefined;
 				return { items: posts, nextCursor };
 			}),

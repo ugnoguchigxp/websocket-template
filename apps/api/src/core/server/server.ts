@@ -11,10 +11,10 @@ import { applyWSSHandler } from "@trpc/server/adapters/ws";
 import { inject, injectable } from "tsyringe";
 import { z } from "zod";
 import { type WebSocket, WebSocketServer } from "ws";
-import type { AccessTokenClaims, IdTokenClaims } from "./JwtService.js";
-import { JwtService } from "./JwtService.js";
-import { logger } from "./modules/logger/core/logger.js";
-import type { Context, ContextUser } from "./routers/index.js";
+import type { AccessTokenClaims, IdTokenClaims } from "../auth/index.js";
+import { JwtService } from "../auth/index.js";
+import { logger } from "../../modules/logger/core/logger.js";
+import type { Context, ContextUser } from "../../routers/index.js";
 
 // Extend WebSocket type to include isAlive property
 interface ExtendedWebSocket extends WebSocket {
@@ -63,7 +63,16 @@ export class ServerApp {
 	 * Extract JWT token from WebSocket request headers or URL query parameter
 	 */
 	private extractToken(req: IncomingMessage): string {
-		// Extract from subprotocol header (preferred method)
+		// Extract from Authorization header (standard method)
+		const authHeader = req.headers.authorization;
+		if (authHeader) {
+			const match = /^Bearer\s+(.+)$/i.exec(authHeader);
+			if (match?.[1]) {
+				return match[1];
+			}
+		}
+
+		// Extract from subprotocol header (WebSocket-specific)
 		const protocols = req.headers["sec-websocket-protocol"];
 		if (protocols) {
 			const parts = protocols.split(",").map((p: string) => p.trim());
@@ -72,10 +81,19 @@ export class ServerApp {
 			}
 		}
 
-		// Fallback: check URL query parameter (for backwards compatibility)
+		// Extract from URL query parameter (WebSocket upgrade request)
 		try {
 			const host = req.headers.host ?? "localhost";
 			const url = new URL(req.url || "", `http://${host}`);
+			const authParam = url.searchParams.get("authorization");
+			if (authParam) {
+				const match = /^Bearer\s+(.+)$/i.exec(authParam);
+				if (match?.[1]) {
+					// すぐに削除してログに残らないようにする
+					return match[1];
+				}
+			}
+			// 後方互換性のため、tokenパラメータもチェック
 			return url.searchParams.get("token") ?? "";
 		} catch {
 			return "";
@@ -560,7 +578,7 @@ export class ServerApp {
 				};
 
 				const accessToken = this.jwtService.signAccessToken(accessTokenClaims);
-				const accessTokenExpiresAt = new Date(accessTokenClaims.exp * 1000);
+				const accessTokenExpiresAt = new Date((accessTokenClaims.exp ?? 0) * 1000);
 
 				this.setRefreshCookie(res, sessionId, session.expiresAt);
 
@@ -689,7 +707,7 @@ export class ServerApp {
 			};
 
 			const accessToken = this.jwtService.signAccessToken(accessTokenClaims);
-			const accessTokenExpiresAt = new Date(accessTokenClaims.exp * 1000);
+			const accessTokenExpiresAt = new Date((accessTokenClaims.exp ?? 0) * 1000);
 
 			const refreshTokenValue = randomBytes(32).toString("hex");
 			const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -840,7 +858,7 @@ export class ServerApp {
 
 		// Import appRouter dynamically to ensure environment variables are loaded first
 		logger.debug("Importing routers module");
-		const { appRouter } = await import("./routers/index.js");
+		const { appRouter } = await import("../../routers/index.js");
 		logger.debug("Routers module imported successfully");
 
 		// Check if SSL certificates are available
@@ -874,6 +892,21 @@ export class ServerApp {
 			maxPayload: 1_000_000, // 1MB max message size
 			perMessageDeflate: false, // Disable compression to prevent DoS
 			clientTracking: true,
+			verifyClient: (info) => {
+				const origin = info.origin || info.req.headers.origin;
+				logger.debug("WebSocket connection attempt", { origin, allowedOrigin: allowedWsOrigin });
+				
+				if (!origin) {
+					logger.warn("WebSocket connection rejected: no origin header");
+					return false;
+				}
+				
+				const allowed = origin === allowedWsOrigin || allowedWsOrigin === "*";
+				if (!allowed) {
+					logger.warn("WebSocket connection rejected: origin not allowed", { origin, allowedOrigin: allowedWsOrigin });
+				}
+				return allowed;
+			},
 		});
 		const handler = applyWSSHandler({
 			wss: wss as any,
@@ -882,8 +915,14 @@ export class ServerApp {
 		});
 
 		wss.on("connection", (socket, req) => {
+			logger.debug("WebSocket connection established", { 
+				url: req.url,
+				origin: req.headers.origin,
+			});
+			
 			// Limit total connections
 			if (wss.clients.size > MAX_CONNECTIONS) {
+				logger.warn("Server at capacity, closing connection");
 				try {
 					socket.close(1008, "Server at capacity");
 				} catch (error) {
@@ -894,64 +933,19 @@ export class ServerApp {
 				return;
 			}
 
-			// Origin allowlist (close early if not allowed)
-			const origin = req.headers.origin as string | undefined;
-			if (origin && origin !== allowedWsOrigin) {
-				try {
-					socket.close(1008, "Origin not allowed");
-				} catch (error) {
-					logger.warn("Failed to close socket with invalid origin", {
-						origin,
-						error: error instanceof Error ? error.message : String(error),
-					});
-				}
-				return;
-			}
-
-			// Extract token using shared method
-			const token = this.extractToken(req);
-
-			// Idle timeout: different for authenticated vs unauthenticated
-			const idleMs = token ? IDLE_TIMEOUT_AUTHENTICATED_MS : IDLE_TIMEOUT_UNAUTHENTICATED_MS;
-			let idleTimer: NodeJS.Timeout | null = null;
-
-			const resetIdle = () => {
-				if (idleTimer) clearTimeout(idleTimer);
-				idleTimer = setTimeout(() => {
-					try {
-						socket.close(1000, "Idle timeout");
-					} catch (error) {
-						logger.debug("Failed to close idle socket", {
-							error: error instanceof Error ? error.message : String(error),
-						});
-					}
-				}, idleMs);
-			};
-
-			resetIdle();
-			socket.on("message", resetIdle);
-
-			// Heartbeat ping/pong
-			const ws = socket as ExtendedWebSocket;
-			ws.isAlive = true;
-			socket.on("pong", () => {
-				ws.isAlive = true;
-				resetIdle();
+			socket.on("message", (data) => {
+				logger.debug("WebSocket message received", { 
+					dataLength: data.length,
+					dataPreview: data.toString().substring(0, 100)
+				});
 			});
 
-			socket.on("close", () => {
-				if (idleTimer) {
-					clearTimeout(idleTimer);
-					idleTimer = null;
-				}
+			socket.on("error", (error) => {
+				logger.error("WebSocket error", { error: error.message });
 			});
 
-			socket.on("error", (err) => {
-				logger.error("WebSocket error", err);
-				if (idleTimer) {
-					clearTimeout(idleTimer);
-					idleTimer = null;
-				}
+			socket.on("close", (code, reason) => {
+				logger.debug("WebSocket connection closed", { code, reason: reason.toString() });
 			});
 		});
 

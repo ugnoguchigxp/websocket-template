@@ -1,6 +1,6 @@
 import { createPublicKey, type KeyObject, type JsonWebKey as NodeJsonWebKey } from "crypto";
 import jwt, { type JwtHeader, type JwtPayload } from "jsonwebtoken";
-import { logger } from "./modules/logger/core/logger.js";
+import { logger } from "../../modules/logger/core/logger.js";
 
 type DiscoveryDocument = {
 	issuer: string;
@@ -98,6 +98,38 @@ async function parseJson<T>(response: Response): Promise<T> {
 	}
 }
 
+/**
+ * JWT Service
+ * 
+ * ローカル認証（HS256）とOIDC認証（RS256）の両方をサポートするJWTサービス。
+ * 
+ * 機能:
+ * - ローカル認証用JWTの署名・検証（HS256, JWT_SECRET使用）
+ * - OIDC認証用JWTの検証（RS256, JWKS使用）
+ * - トークンのリフレッシュ（OIDC）
+ * - Discovery DocumentとJWKSのキャッシング
+ * 
+ * @example
+ * ```typescript
+ * const jwtService = new JwtService({
+ *   issuer: "https://idp.example.com",
+ *   clientId: "my-client",
+ *   redirectUri: "https://app.example.com/callback"
+ * });
+ * 
+ * // ローカル認証用トークンの署名
+ * const token = jwtService.signAccessToken({
+ *   sub: "user:123",
+ *   aud: "api://default",
+ *   iss: "local",
+ *   exp: Date.now() / 1000 + 3600,
+ *   iat: Date.now() / 1000,
+ * });
+ * 
+ * // トークンの検証（ローカル/OIDC自動判定）
+ * const claims = await jwtService.verifyAccessToken(token);
+ * ```
+ */
 export class JwtService {
 	private readonly tokenEndpointOverride?: string;
 	private readonly jwksUriOverride?: string;

@@ -3,9 +3,11 @@ import {
 	getCoreRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
+	getFilteredRowModel,
 	useReactTable,
 	type ColumnDef,
 	type SortingState,
+	type ColumnFiltersState,
 } from "@tanstack/react-table"
 import { useTranslation } from "react-i18next"
 import { useState } from "react"
@@ -15,22 +17,64 @@ interface TableProps<TData> {
 	data: TData[]
 	columns: ColumnDef<TData>[]
 	pageSize?: number
+	loading?: boolean
+	emptyMessage?: string
+	enableSelection?: boolean
+	enableSorting?: boolean
+	enablePagination?: boolean
+	enableFiltering?: boolean
+	initialSorting?: SortingState
+	initialFilters?: ColumnFiltersState
+	onSortingChange?: (sorting: SortingState) => void
+	onFiltersChange?: (filters: ColumnFiltersState) => void
 }
 
-export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>) {
+export function Table<TData>({ 
+	data, 
+	columns, 
+	pageSize = 10,
+	loading = false,
+	emptyMessage,
+	enableSorting = true,
+	enablePagination = true,
+	initialSorting = [],
+	initialFilters = [],
+	onSortingChange,
+	onFiltersChange,
+}: TableProps<TData>) {
 	const { t } = useTranslation()
-	const [sorting, setSorting] = useState<SortingState>([])
+	const [sorting, setSorting] = useState<SortingState>(initialSorting)
+	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialFilters)
+
+	const handleSortingChange = (updater: any) => {
+		setSorting(updater)
+		if (onSortingChange) {
+			const newSorting = typeof updater === 'function' ? updater(sorting) : updater
+			onSortingChange(newSorting)
+		}
+	}
+
+	const handleFiltersChange = (updater: any) => {
+		setColumnFilters(updater)
+		if (onFiltersChange) {
+			const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater
+			onFiltersChange(newFilters)
+		}
+	}
 
 	const table = useReactTable({
 		data,
 		columns,
 		state: {
 			sorting,
+			columnFilters,
 		},
-		onSortingChange: setSorting,
+		onSortingChange: handleSortingChange,
+		onColumnFiltersChange: handleFiltersChange,
 		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
+		getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
+		getPaginationRowModel: enablePagination ? getPaginationRowModel() : undefined,
+		getFilteredRowModel: getFilteredRowModel(),
 		initialState: {
 			pagination: {
 				pageSize,
@@ -40,9 +84,9 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 
 	return (
 		<div className="space-y-4">
-			<div className="overflow-x-auto rounded-md border">
+			<div className="overflow-x-auto rounded-md border bg-white">
 				<table className="w-full caption-bottom text-sm">
-					<thead className="border-b">
+					<thead className="border-b bg-gray-50">
 						{table.getHeaderGroups().map((headerGroup) => (
 							<tr key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
@@ -70,7 +114,15 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 						))}
 					</thead>
 					<tbody className="[&_tr:last-child]:border-0">
-						{table.getRowModel().rows?.length ? (
+						{loading ? (
+							<tr>
+								<td colSpan={columns.length} className="h-24 text-center">
+									<div className="flex items-center justify-center">
+										<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+									</div>
+								</td>
+							</tr>
+						) : table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => (
 								<tr
 									key={row.id}
@@ -86,31 +138,38 @@ export function Table<TData>({ data, columns, pageSize = 10 }: TableProps<TData>
 						) : (
 							<tr>
 								<td colSpan={columns.length} className="h-24 text-center">
-									{t("no_data")}
+									{emptyMessage || t("no_data")}
 								</td>
 							</tr>
 						)}
 					</tbody>
 				</table>
 			</div>
-			<div className="flex items-center justify-end space-x-2">
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => table.previousPage()}
-					disabled={!table.getCanPreviousPage()}
-				>
-					{t("previous")}
-				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => table.nextPage()}
-					disabled={!table.getCanNextPage()}
-				>
-					{t("next")}
-				</Button>
-			</div>
+			{enablePagination && (
+				<div className="flex items-center justify-between">
+					<div className="text-sm text-muted-foreground">
+						{t("showing")} {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} {t("of")} {table.getFilteredRowModel().rows.length}
+					</div>
+					<div className="flex items-center space-x-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => table.previousPage()}
+							disabled={!table.getCanPreviousPage()}
+						>
+							{t("previous")}
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => table.nextPage()}
+							disabled={!table.getCanNextPage()}
+						>
+							{t("next")}
+						</Button>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }

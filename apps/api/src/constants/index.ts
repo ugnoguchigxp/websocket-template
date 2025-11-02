@@ -5,6 +5,10 @@
  * Do not use magic numbers in the codebase - define them here instead.
  */
 
+// Re-export organized constants
+export * from "./timeouts.js";
+export * from "./limits.js";
+
 export const AUTH = {
 	MAX_LOGIN_ATTEMPTS: 3,
 	PASSWORD_MIN_LENGTH: 8,

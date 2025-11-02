@@ -44,6 +44,8 @@ const queryClient = new QueryClient({
 		queries: {
 			staleTime: 5 * 60 * 1000, // 5 minutes
 			refetchOnWindowFocus: false,
+			refetchOnMount: true, // マウント時に再取得
+			refetchOnReconnect: true, // WebSocket再接続時に再取得
 		},
 	},
 })
@@ -136,11 +138,25 @@ function AppRoot() {
 		[clearRefreshTimer, performRefresh],
 	)
 
+	const isInitialConnectionRef = React.useRef(true)
+
 	const connection = useMemo<TrpcClientConnection | null>(() => {
 		if (!tokenState) {
 			return null
 		}
-		return createTrpcClientWithToken(tokenState.token)
+		return createTrpcClientWithToken(tokenState.token, {
+			onOpen: () => {
+				// 初回接続時はスキップ（まだクエリが実行されていない）
+				if (isInitialConnectionRef.current) {
+					log.debug("Initial WebSocket connection established")
+					isInitialConnectionRef.current = false
+					return
+				}
+				// WebSocket再接続時に全てのクエリを無効化して再取得を促す
+				log.info("WebSocket reconnected, invalidating queries")
+				queryClient.invalidateQueries()
+			},
+		})
 	}, [tokenState?.token])
 
 	useEffect(() => {
@@ -401,15 +417,26 @@ function AppRoot() {
 		)
 	}
 
+	if (!connection) {
+		return (
+			<div className="flex items-center justify-center min-h-screen">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+					<p>Connecting...</p>
+				</div>
+			</div>
+		)
+	}
+
 	return (
 		<BrowserRouter>
 			<AuthProvider onLogout={handleLogout} user={user}>
 				<NotificationProvider>
-					<api.Provider client={connection.client} queryClient={queryClient}>
-						<QueryClientProvider client={queryClient}>
+					<QueryClientProvider client={queryClient}>
+						<api.Provider client={connection.client} queryClient={queryClient}>
 							<App />
-						</QueryClientProvider>
-					</api.Provider>
+						</api.Provider>
+					</QueryClientProvider>
 					<NotificationContainer />
 				</NotificationProvider>
 			</AuthProvider>

@@ -20,7 +20,7 @@ export class AppService {
 			await this.dbInitializer.initialize();
 
 			// Import and start server after environment is ready
-			const { ServerApp } = await import("../server.js");
+			const { ServerApp } = await import("../core/server/index.js");
 			const { container } = await import("tsyringe");
 			const app = container.resolve(ServerApp);
 			await app.start(this.environmentService.getPort());

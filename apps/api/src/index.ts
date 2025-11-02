@@ -3,11 +3,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import { container } from "tsyringe";
-import { JwtService } from "./JwtService.js";
-import { DbInitializer } from "./db.js";
+import { JwtService } from "./core/auth/index.js";
+import { DbInitializer, prisma } from "./core/database/index.js";
 import { logger } from "./modules/logger/core/logger.js";
-import { prisma } from "./prisma.js";
-import { ServerApp } from "./server.js";
+import { ServerApp } from "./core/server/index.js";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
