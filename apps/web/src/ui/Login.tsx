@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import type React from "react"
+import { useState } from "react"
 import { Button } from "../components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card"
 import { Input } from "../components/ui/Input"
@@ -13,7 +14,13 @@ type LoginProps = {
 	hasSsoConfig?: boolean
 }
 
-export function Login({ onLocalLogin, onSsoLogin, isProcessing = false, errorMessage, hasSsoConfig = false }: LoginProps) {
+export function Login({
+	onLocalLogin,
+	onSsoLogin,
+	isProcessing = false,
+	errorMessage,
+	hasSsoConfig = false,
+}: LoginProps) {
 	const { showError } = useNotificationContext()
 	const [username, setUsername] = useState("")
 	const [password, setPassword] = useState("")
@@ -48,10 +55,9 @@ export function Login({ onLocalLogin, onSsoLogin, isProcessing = false, errorMes
 				<CardHeader>
 					<CardTitle>Sign in</CardTitle>
 					<CardDescription>
-						{loginMethod === "local" 
+						{loginMethod === "local"
 							? "Enter your username and password to continue."
-							: "Authenticate with your identity provider to continue."
-						}
+							: "Authenticate with your identity provider to continue."}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -87,7 +93,7 @@ export function Login({ onLocalLogin, onSsoLogin, isProcessing = false, errorMes
 									type="text"
 									placeholder="Enter your username"
 									value={username}
-									onChange={(e) => setUsername(e.target.value)}
+									onChange={e => setUsername(e.target.value)}
 									disabled={isProcessing}
 									autoComplete="username"
 									required
@@ -100,7 +106,7 @@ export function Login({ onLocalLogin, onSsoLogin, isProcessing = false, errorMes
 									type="password"
 									placeholder="Enter your password"
 									value={password}
-									onChange={(e) => setPassword(e.target.value)}
+									onChange={e => setPassword(e.target.value)}
 									disabled={isProcessing}
 									autoComplete="current-password"
 									required
@@ -120,8 +126,8 @@ export function Login({ onLocalLogin, onSsoLogin, isProcessing = false, errorMes
 							<div className="space-y-1">
 								<Label>OIDC Provider</Label>
 								<p className="text-sm text-muted-foreground">
-									You will be redirected to the identity provider. After completing authentication you
-									will return here automatically.
+									You will be redirected to the identity provider. After completing authentication
+									you will return here automatically.
 								</p>
 							</div>
 							<Button

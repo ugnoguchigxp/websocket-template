@@ -1,4 +1,4 @@
-import { createPublicKey, type KeyObject, type JsonWebKey as NodeJsonWebKey } from "crypto";
+import { type KeyObject, type JsonWebKey as NodeJsonWebKey, createPublicKey } from "crypto";
 import jwt, { type JwtHeader, type JwtPayload } from "jsonwebtoken";
 import { logger } from "../../modules/logger/core/logger.js";
 
@@ -79,9 +79,10 @@ function isJwtPayload(payload: string | JwtPayload): payload is JwtPayload {
 }
 
 function toDate(secondsFromNow: number | undefined, defaultSeconds: number): Date {
-	const seconds = typeof secondsFromNow === "number" && Number.isFinite(secondsFromNow)
-		? secondsFromNow
-		: defaultSeconds;
+	const seconds =
+		typeof secondsFromNow === "number" && Number.isFinite(secondsFromNow)
+			? secondsFromNow
+			: defaultSeconds;
 	return new Date(Date.now() + seconds * 1000);
 }
 
@@ -89,7 +90,7 @@ async function parseJson<T>(response: Response): Promise<T> {
 	const text = await response.text();
 	try {
 		return JSON.parse(text) as T;
-	} catch (error) {
+	} catch (_error) {
 		logger.error("Failed to parse JSON response from OIDC provider", {
 			status: response.status,
 			body: text,
@@ -100,15 +101,15 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 /**
  * JWT Service
- * 
+ *
  * ローカル認証（HS256）とOIDC認証（RS256）の両方をサポートするJWTサービス。
- * 
+ *
  * 機能:
  * - ローカル認証用JWTの署名・検証（HS256, JWT_SECRET使用）
  * - OIDC認証用JWTの検証（RS256, JWKS使用）
  * - トークンのリフレッシュ（OIDC）
  * - Discovery DocumentとJWKSのキャッシング
- * 
+ *
  * @example
  * ```typescript
  * const jwtService = new JwtService({
@@ -116,7 +117,7 @@ async function parseJson<T>(response: Response): Promise<T> {
  *   clientId: "my-client",
  *   redirectUri: "https://app.example.com/callback"
  * });
- * 
+ *
  * // ローカル認証用トークンの署名
  * const token = jwtService.signAccessToken({
  *   sub: "user:123",
@@ -125,7 +126,7 @@ async function parseJson<T>(response: Response): Promise<T> {
  *   exp: Date.now() / 1000 + 3600,
  *   iat: Date.now() / 1000,
  * });
- * 
+ *
  * // トークンの検証（ローカル/OIDC自動判定）
  * const claims = await jwtService.verifyAccessToken(token);
  * ```
@@ -328,7 +329,7 @@ export class JwtService {
 
 	private async verifyWithKey<T extends JwtPayload>(token: string): Promise<T> {
 		const header = this.decodeHeader(token);
-		
+
 		// Check if this is a local token (HS256) or OIDC token (RS256, etc.)
 		if (header.alg === "HS256") {
 			// Local authentication token - verify with JWT_SECRET (cached)
@@ -336,13 +337,13 @@ export class JwtService {
 				algorithms: ["HS256"],
 				clockTolerance: 5,
 			});
-			
+
 			if (!isJwtPayload(payload)) {
 				throw new Error("JWT payload is not an object");
 			}
 			return payload as T;
 		}
-		
+
 		// OIDC token - verify with JWKS
 		if (!header.kid) {
 			throw new Error("JWT header missing kid");
@@ -391,9 +392,7 @@ export class JwtService {
 		}
 	}
 
-	private buildTokenRequestBody(
-		params: Record<string, string | undefined>
-	): URLSearchParams {
+	private buildTokenRequestBody(params: Record<string, string | undefined>): URLSearchParams {
 		const body = new URLSearchParams();
 		for (const [key, value] of Object.entries(params)) {
 			if (value === undefined) {
@@ -404,9 +403,7 @@ export class JwtService {
 		return body;
 	}
 
-	private async fetchTokenEndpoint(
-		body: URLSearchParams
-	): Promise<{
+	private async fetchTokenEndpoint(body: URLSearchParams): Promise<{
 		access_token: string;
 		token_type: string;
 		expires_in?: number;
@@ -475,7 +472,7 @@ export class JwtService {
 
 		let idTokenClaims: IdTokenClaims | undefined;
 		if (tokenResponse.id_token) {
-			idTokenClaims = await this.verifyIdToken(tokenResponse.id_token) ?? undefined;
+			idTokenClaims = (await this.verifyIdToken(tokenResponse.id_token)) ?? undefined;
 		}
 
 		return {
@@ -521,7 +518,7 @@ export class JwtService {
 
 		let idTokenClaims: IdTokenClaims | undefined;
 		if (tokenResponse.id_token) {
-			idTokenClaims = await this.verifyIdToken(tokenResponse.id_token) ?? undefined;
+			idTokenClaims = (await this.verifyIdToken(tokenResponse.id_token)) ?? undefined;
 		}
 
 		return {

@@ -13,8 +13,8 @@ describe("rateLimit utilities", () => {
 	});
 
 	afterEach(() => {
-		delete process.env.RATE_LIMIT_TOKENS;
-		delete process.env.RATE_LIMIT_INTERVAL_MS;
+		process.env.RATE_LIMIT_TOKENS = undefined;
+		process.env.RATE_LIMIT_INTERVAL_MS = undefined;
 		vi.clearAllTimers();
 		vi.useRealTimers();
 	});

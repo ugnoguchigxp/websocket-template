@@ -1,0 +1,41 @@
+/**
+ * Constants for multimodal rendering
+ */
+
+export const FLOW_CONSTANTS = {
+	NODE_WIDTH: 200,
+	NODE_HEIGHT: 50,
+	HORIZONTAL_SPACING: 50,
+	VERTICAL_SPACING: 100,
+}
+
+export const EXPORT_LIMITS = {
+	MAX_NODES: 1000,
+	MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+}
+
+export const FLOW_DIMENSIONS = {
+	MIN_WIDTH: 800,
+	MIN_HEIGHT: 600,
+	DEFAULT_WIDTH: 1200,
+	DEFAULT_HEIGHT: 800,
+}
+
+export const TEXT_LIMITS = {
+	MAX_LABEL_LENGTH: 100,
+	MAX_DESCRIPTION_LENGTH: 500,
+}
+
+export const BACKGROUND_CONFIG = {
+	DOT_SIZE: 1,
+	DOT_COLOR: "#aaa",
+	GAP: 20,
+}
+
+export const NODE_COLORS = {
+	DEFAULT: "#1a192b",
+	PRIMARY: "#3b82f6",
+	SUCCESS: "#10b981",
+	WARNING: "#f59e0b",
+	ERROR: "#ef4444",
+}

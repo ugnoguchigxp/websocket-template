@@ -18,16 +18,37 @@ export default defineConfig({
 			"@lib": path.resolve(__dirname, "./src/lib"),
 		},
 	},
+	optimizeDeps: {
+		include: [
+			"@tiptap/core",
+			"@tiptap/react",
+			"@tiptap/starter-kit",
+			"@tiptap/extension-character-count",
+			"@tiptap/extension-code-block-lowlight",
+			"@tiptap/extension-image",
+			"@tiptap/extension-link",
+			"@tiptap/extension-table",
+			"@tiptap/extension-table-cell",
+			"@tiptap/extension-table-header",
+			"@tiptap/extension-table-row",
+			"@tiptap/extension-typography",
+			"@tiptap/html",
+			"lowlight",
+			"prosemirror-state",
+			"dompurify",
+			"marked",
+		],
+	},
 	server: {
 		host: true,
 		port: 5173,
 		proxy: {
-			'/auth': {
-				target: 'http://localhost:3001',
+			"/auth": {
+				target: "http://localhost:3000",
 				changeOrigin: true,
 			},
-			'/api': {
-				target: 'http://localhost:3001',
+			"/api": {
+				target: "http://localhost:3000",
 				changeOrigin: true,
 			},
 		},

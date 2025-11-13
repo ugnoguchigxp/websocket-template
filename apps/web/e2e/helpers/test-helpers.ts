@@ -236,7 +236,7 @@ export class TestHelpers {
 		await this.page.waitForFunction(
 			sel => {
 				const el = document.querySelector(sel)
-				return el && el.disabled
+				return el?.disabled
 			},
 			selector,
 			{ timeout }
@@ -247,7 +247,7 @@ export class TestHelpers {
 		await this.page.waitForFunction(
 			(sel, txt) => {
 				const el = document.querySelector(sel)
-				return el && el.textContent?.includes(txt)
+				return el?.textContent?.includes(txt)
 			},
 			selector,
 			text,

@@ -1,5 +1,5 @@
 import { createContextLogger } from "@logger"
-import type { ColumnDef, SortingState, ColumnFiltersState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState, SortingState } from "@tanstack/react-table"
 import React, { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "../components/ui/Button"
@@ -16,25 +16,25 @@ const log = createContextLogger("BBSPage")
 export function BBSPage() {
 	const { t } = useTranslation()
 	const { showSuccess, showError } = useNotificationContext()
-	
+
 	// Debug: tRPC context確認
 	React.useEffect(() => {
 		log.debug("BBSPage mounted, checking tRPC context")
 	}, [])
-	
+
 	// Table state
 	const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-	
+
 	// Posts data
 	const posts = api.posts.list.useQuery(
 		{ limit: 50 },
-		{ 
-			staleTime: 60_000, 
+		{
+			staleTime: 60_000,
 			refetchOnWindowFocus: false,
 		}
 	)
-	
+
 	// Debug: データ取得状態をログ出力
 	React.useEffect(() => {
 		log.debug("Posts query state", {
@@ -47,22 +47,22 @@ export function BBSPage() {
 			error: posts.error?.message,
 		})
 	}, [posts.isLoading, posts.isFetching, posts.isSuccess, posts.data, posts.error])
-	
+
 	// UI state
 	const [selectedPostId, setSelectedPostId] = useState<number | null>(null)
 	const [open, setOpen] = useState(false)
 	const [title, setTitle] = useState("")
 	const [body, setBody] = useState("")
-	
+
 	// Comments
 	const comments = api.posts.comments.list.useQuery(
 		selectedPostId ? { postId: selectedPostId } : undefined,
 		{ enabled: !!selectedPostId }
 	)
-	
+
 	// Comment form
 	const [commentBody, setCommentBody] = useState("")
-	
+
 	// Mutations
 	const createPost = api.posts.create.useMutation({
 		onSuccess: () => {
@@ -78,7 +78,7 @@ export function BBSPage() {
 			log.error("Failed to create post", e)
 		},
 	})
-	
+
 	const addComment = api.posts.comments.add.useMutation({
 		onSuccess: () => {
 			setCommentBody("")
@@ -91,7 +91,7 @@ export function BBSPage() {
 			log.error("Failed to add comment", e)
 		},
 	})
-	
+
 	// Helper function to format date
 	const formatDate = (date: string) => {
 		return new Date(date).toLocaleString(i18n.language === "ja" ? "ja-JP" : "en-US", {
@@ -176,9 +176,7 @@ export function BBSPage() {
 					</button>
 				),
 				cell: info => (
-					<span className="font-mono text-gray-700 font-medium">
-						{info.getValue()?.username}
-					</span>
+					<span className="font-mono text-gray-700 font-medium">{info.getValue()?.username}</span>
 				),
 				enableSorting: true,
 				filterFn: (row, columnId, filterValue) => {
@@ -199,9 +197,7 @@ export function BBSPage() {
 					</button>
 				),
 				cell: info => (
-					<span className="font-mono text-gray-600">
-						{formatDate(info.getValue())}
-					</span>
+					<span className="font-mono text-gray-600">{formatDate(info.getValue())}</span>
 				),
 				enableSorting: true,
 				enableColumnFilter: false,
@@ -231,27 +227,25 @@ export function BBSPage() {
 							{t("new_post")}
 						</Button>
 					</div>
-					
+
 					{/* Global filter input - centered */}
 					<div className="flex items-center gap-2 justify-center">
-						<span className="font-mono text-sm text-gray-600 whitespace-nowrap">{t("search")}:</span>
+						<span className="font-mono text-sm text-gray-600 whitespace-nowrap">
+							{t("search")}:
+						</span>
 						<Input
 							placeholder={t("search_posts")}
-							value={(columnFilters.find(f => f.id === "title")?.value ?? "")}
+							value={columnFilters.find(f => f.id === "title")?.value ?? ""}
 							onChange={e =>
-								setColumnFilters(
-									e.target.value
-										? [{ id: "title", value: e.target.value }]
-										: []
-								)
+								setColumnFilters(e.target.value ? [{ id: "title", value: e.target.value }] : [])
 							}
 							className="font-mono max-w-xs"
 							data-testid="search-input"
 						/>
 					</div>
-					
+
 					{/* Spacer for desktop layout */}
-					<div className="hidden sm:block w-full sm:w-auto"></div>
+					<div className="hidden sm:block w-full sm:w-auto" />
 				</div>
 
 				{/* Enhanced Thread List */}
@@ -262,7 +256,7 @@ export function BBSPage() {
 						</p>
 					</div>
 				)}
-				
+
 				<Table
 					data={posts.data?.items ?? []}
 					columns={columns}

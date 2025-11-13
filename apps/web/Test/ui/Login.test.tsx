@@ -12,10 +12,10 @@ describe("Login Component", () => {
 	it("renders sign-in card with button", () => {
 		renderWithProviders(<Login onLogin={mockOnLogin} />)
 		expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument()
+		expect(screen.getByText(/you will be redirected to the identity provider/i)).toBeInTheDocument()
 		expect(
-			screen.getByText(/you will be redirected to the identity provider/i),
+			screen.getByRole("button", { name: /continue with single sign-on/i })
 		).toBeInTheDocument()
-		expect(screen.getByRole("button", { name: /continue with single sign-on/i })).toBeInTheDocument()
 	})
 
 	it("calls onLogin when button is clicked", async () => {

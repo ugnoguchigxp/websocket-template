@@ -18,8 +18,7 @@ export const createContextLogger = (context: string): IContextLogger => ({
 		logger.info(`[${context}] ${message}`, meta),
 	warn: (message: string, meta?: Record<string, unknown>) =>
 		logger.warn(`[${context}] ${message}`, meta),
-	error: (message: string, error?: Error | Record<string, unknown>) =>
-		logger.error(`[${context}] ${message}`, error),
+	error: (message: string, error?: unknown) => logger.error(`[${context}] ${message}`, error),
 });
 
 // loggerインスタンスもエクスポート

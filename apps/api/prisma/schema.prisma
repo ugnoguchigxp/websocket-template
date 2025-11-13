@@ -4,7 +4,7 @@ generator client {
 
 // SQLiteを使用する場合（開発用）:
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -17,22 +17,29 @@ datasource db {
 
 model User {
   id            Int            @id @default(autoincrement())
-  externalId    String?        @unique
+  externalId    String?        @unique // OIDC sub claim
   email         String?        @unique
   displayName   String?
   username      String         @unique
-  passwordHash  String
+  passwordHash  String?
   role          String         @default("USER")
+  authType      String         @default("LOCAL") // LOCAL | OIDC | MSAL
+  isActive      Boolean        @default(true)
+  lastLoginAt   DateTime?
   createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   posts         Post[]
   comments      Comment[]
   refreshTokens RefreshToken[]
-}
+  mindmaps      MindMap[]
+  queueJobs     QueueJob[]
+  queueBatches  QueueBatch[]
+  chatSessions  ChatSession[]
 
-// enum Role {
-//   USER
-//   ADMIN
-// }
+  @@index([email])
+  @@index([isActive])
+  @@index([externalId])
+}
 
 model Post {
   id        Int       @id @default(autoincrement())
@@ -70,3 +77,191 @@ model RefreshToken {
   @@index([userId, expiresAt]) // Composite index for cleanup queries
   @@index([tokenType])
 }
+
+// Storage for file content (markdown, binary, etc.)
+model StoredContent {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  content     String   // For text/markdown content
+  metadata    String   @default("{}") // JSON string for SQLite compatibility
+  contentType String   @default("text/plain")
+  size        Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("stored_content")
+}
+
+// MindMap models migrated from local_knowledge
+model MindMap {
+  id            String                @id @default(uuid())
+  userId        Int                   @map("user_id")
+  title         String
+  englishName   String                @unique @map("english_name")
+  description   String?
+  isPublic      Boolean               @default(false) @map("is_public")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  documentLinks DocumentMindmapLink[]
+  nodes         KnowledgeNode[]
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connections   NodeConnection[]
+
+  @@index([userId], map: "idx_mindmaps_user_id")
+  @@index([englishName], map: "idx_mindmaps_english_name")
+  @@index([createdAt(sort: Desc)], map: "idx_new_mindmaps_created_at")
+  @@map("mindmaps")
+}
+
+model KnowledgeNode {
+  id                String                   @id @default(uuid())
+  mindmapId         String                   @map("mindmap_id")
+  parentNodeId      String?                  @map("parent_node_id")
+  title             String
+  fileName          String                   @default("") @map("file_name")
+  positionX         Float                    @default(0) @map("position_x")
+  positionY         Float                    @default(0) @map("position_y")
+  direction         String                   @default("RIGHT") // LEFT | RIGHT for SQLite compatibility
+  level             Int                      @default(0)
+  aiGenerated       Boolean                  @default(false) @map("ai_generated")
+  markdownContent   String?                  @map("markdown_content")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  mindmap           MindMap                  @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
+  parent            KnowledgeNode?           @relation("NodeHierarchy", fields: [parentNodeId], references: [id], onDelete: Cascade)
+  children          KnowledgeNode[]          @relation("NodeHierarchy")
+  sourceConnections NodeConnection[]         @relation("SourceConnections")
+  targetConnections NodeConnection[]         @relation("TargetConnections")
+
+  @@index([mindmapId], map: "idx_knowledge_nodes_mindmap_id")
+  @@index([parentNodeId], map: "idx_knowledge_nodes_parent_node_id")
+  @@index([direction], map: "idx_knowledge_nodes_direction")
+  @@index([level], map: "idx_knowledge_nodes_level")
+  @@map("knowledge_nodes")
+}
+
+model NodeConnection {
+  id             String         @id @default(uuid())
+  mindmapId      String         @map("mindmap_id")
+  sourceNodeId   String         @map("source_node_id")
+  targetNodeId   String         @map("target_node_id")
+  connectionType String         @default("CHILD") @map("connection_type") // CHILD | REFERENCE | ASSOCIATION for SQLite compatibility
+  createdAt      DateTime       @default(now()) @map("created_at")
+  mindmap        MindMap        @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
+  sourceNode     KnowledgeNode  @relation("SourceConnections", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode     KnowledgeNode  @relation("TargetConnections", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNodeId, targetNodeId, connectionType])
+  @@index([mindmapId], map: "idx_node_connections_mindmap_id")
+  @@index([sourceNodeId], map: "idx_node_connections_source_node_id")
+  @@index([targetNodeId], map: "idx_node_connections_target_node_id")
+  @@map("node_connections")
+}
+
+model DocumentMindmapLink {
+  documentId String   @map("document_id")
+  mindmapId  String   @map("mindmap_id")
+  linkType   String   @default("GENERATED_FROM") @map("link_type")
+  metadata   String   @default("{}") // JSON string for SQLite compatibility
+  createdAt  DateTime @default(now()) @map("created_at")
+  mindmap    MindMap  @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, mindmapId])
+  @@index([mindmapId], map: "idx_document_mindmap_links_mindmap_id")
+  @@map("document_mindmap_links")
+}
+
+// Queue Job persistence
+model QueueJob {
+  id          String    @id @default(uuid())
+  userId      Int       @map("user_id")
+  data        String    // JSON string for job data
+  status      String    @default("pending") // pending | processing | completed | failed | cancelled
+  priority    Int       @default(5)
+  retryCount  Int       @default(0) @map("retry_count")
+  maxRetries  Int       @default(3) @map("max_retries")
+  timeoutMs   Int       @default(30000) @map("timeout_ms")
+  result      String?   // JSON string for result data
+  error       String?   // Error message
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch       QueueBatch? @relation(fields: [batchId], references: [id])
+  batchId     String?   @map("batch_id")
+
+  @@index([userId], map: "idx_queue_jobs_user_id")
+  @@index([status], map: "idx_queue_jobs_status")
+  @@index([priority], map: "idx_queue_jobs_priority")
+  @@index([createdAt], map: "idx_queue_jobs_created_at")
+  @@index([batchId], map: "idx_queue_jobs_batch_id")
+  @@map("queue_jobs")
+}
+
+// Queue Batch persistence
+model QueueBatch {
+  id          String    @id @default(uuid())
+  userId      Int       @map("user_id")
+  status      String    @default("pending") // pending | processing | completed | failed
+  totalItems  Int       @map("total_items")
+  completedItems Int    @default(0) @map("completed_items")
+  failedItems Int      @default(0) @map("failed_items")
+  options     String    @default("{}") // JSON string for batch options
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs        QueueJob[]
+
+  @@index([userId], map: "idx_queue_batches_user_id")
+  @@index([status], map: "idx_queue_batches_status")
+  @@index([createdAt], map: "idx_queue_batches_created_at")
+  @@map("queue_batches")
+}
+
+// Chat Session persistence
+model ChatSession {
+  id          String    @id @default(uuid())
+  userId      Int       @map("user_id")
+  sessionId   String    @unique
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  status      String    @default("active") // active | inactive | expired
+  messageCount Int     @default(0) @map("message_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+
+  @@index([userId], map: "idx_chat_sessions_user_id")
+  @@index([sessionId], map: "idx_chat_sessions_session_id")
+  @@index([status], map: "idx_chat_sessions_status")
+  @@index([lastActivityAt], map: "idx_chat_sessions_last_activity_at")
+  @@map("chat_sessions")
+}
+
+// Chat Message persistence
+model ChatMessage {
+  id          String       @id @default(uuid())
+  sessionId   String       @map("session_id")
+  type        String       // user_message | response_chunk | response_complete | error | ping | pong
+  content     String?
+  metadata    String       @default("{}") // JSON string for message metadata
+  messageId   String?      @map("message_id")
+  timestamp   DateTime     @default(now())
+  session     ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId], map: "idx_chat_messages_session_id")
+  @@index([type], map: "idx_chat_messages_type")
+  @@index([timestamp], map: "idx_chat_messages_timestamp")
+  @@map("chat_messages")
+}
+
+// Type constants for SQLite compatibility (instead of enums)
+// These should be defined in TypeScript code
+// NodeDirection: "LEFT" | "RIGHT"
+// ConnectionType: "CHILD" | "REFERENCE" | "ASSOCIATION"
+// AuthType: "LOCAL" | "OIDC" | "MSAL"

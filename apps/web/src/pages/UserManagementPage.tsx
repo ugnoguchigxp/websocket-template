@@ -41,20 +41,26 @@ export function UserManagementPage() {
 	}
 
 	// Users list
-	const users = api.users.list.useQuery({}, { 
-		staleTime: 60_000, 
-		refetchOnWindowFocus: false,
-		refetchOnMount: true,
-		refetchOnReconnect: true,
-	})
+	const users = api.users.list.useQuery(
+		{},
+		{
+			staleTime: 60_000,
+			refetchOnWindowFocus: false,
+			refetchOnMount: true,
+			refetchOnReconnect: true,
+		}
+	)
 
 	// Current user info
-	const currentUser = api.auth.me.useQuery({}, { 
-		staleTime: 60_000, 
-		refetchOnWindowFocus: false,
-		refetchOnMount: true,
-		refetchOnReconnect: true,
-	})
+	const currentUser = api.auth.me.useQuery(
+		{},
+		{
+			staleTime: 60_000,
+			refetchOnWindowFocus: false,
+			refetchOnMount: true,
+			refetchOnReconnect: true,
+		}
+	)
 
 	// Dialog states
 	const [createOpen, setCreateOpen] = useState(false)
@@ -260,12 +266,7 @@ export function UserManagementPage() {
 						<p className="font-mono text-gray-600">{t("loading")}</p>
 					</div>
 				) : (
-					<Table
-						data={users.data ?? []}
-						columns={columns}
-						pageSize={10}
-						data-testid="user-list"
-					/>
+					<Table data={users.data ?? []} columns={columns} pageSize={10} data-testid="user-list" />
 				)}
 			</main>
 

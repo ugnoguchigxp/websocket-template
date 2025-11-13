@@ -546,3 +546,102 @@ Issue や Pull Request を歓迎します。
 4. サーバとクライアントが両方起動しているか
 
 詳細は本 README のトラブルシューティングセクションを参照してください。
+
+## 🎯 アーキテクチャ概要（2025-11-13更新）
+
+### WebSocket + tRPC ベース
+このプロジェクトは **HTTP+REST を完全排除** し、**WebSocket + tRPC のみ**で実装されています。
+
+#### 通信方式
+```
+クライアント ←→ WebSocket接続（単一） ←→ サーバー
+              ↓
+            tRPC
+              ↓
+        ┌─────┴─────┐
+        │           │
+    Query/      Subscription
+   Mutation    (リアルタイム)
+```
+
+- **tRPC Query/Mutation**: データ取得・更新
+- **tRPC Subscription**: リアルタイム通信（チャット等）
+- **認証**: WebSocket接続時にOIDCトークンで認証（URLパラメータ不使用）
+
+#### 主要機能
+
+1. **Markdown Editor** (`/markdown-editor`)
+   - Tiptap v3.3.0 ベース
+   - リッチテキスト編集、テーブル、コードブロック
+   - リアルタイムプレビュー
+
+2. **Socket Chat** (`/socket-chat`)
+   - tRPC subscription ベース
+   - MCP互換メッセージング
+   - マルチモーダル表示対応
+
+3. **Mind Map** (移植済み)
+   - ReactFlow + ElkJS
+   - AI生成機能
+   - tRPC CRUD
+
+4. **BBS** (既存機能)
+   - 掲示板システム
+   - tRPC ベース
+
+### 技術スタック
+
+#### バックエンド (`apps/api`)
+- Node.js 24.1.0
+- tRPC over WebSocket
+- Prisma (PostgreSQL)
+- TypeScript
+- tsyringe (DI)
+
+#### フロントエンド (`apps/web`)
+- React 18
+- TanStack Query (React Query)
+- Vite
+- Tailwind CSS
+- TypeScript
+
+#### 主要ライブラリ
+- **エディタ**: @tiptap/react, prosemirror
+- **チャート**: ReactFlow, ElkJS
+- **UI**: shadcn/ui, Radix UI
+- **認証**: OIDC
+
+### 開発開始
+
+```bash
+# 依存関係インストール
+pnpm install
+
+# 開発サーバー起動（API + Web）
+pnpm dev
+
+# ビルド
+pnpm build
+```
+
+アクセス:
+- Web: http://localhost:5173
+- API: http://localhost:3000
+- Markdown Editor: http://localhost:5173/markdown-editor
+- Socket Chat: http://localhost:5173/socket-chat
+
+### 環境変数
+
+```bash
+# apps/web/.env
+VITE_API_HOST=localhost
+VITE_API_PORT=3000
+VITE_WS_URL=ws://localhost:3000
+
+# .env (root)
+DATABASE_URL=postgresql://user:password@localhost:5432/db
+PORT=3000
+```
+
+詳細は `docs/Migration.md` を参照してください。
+

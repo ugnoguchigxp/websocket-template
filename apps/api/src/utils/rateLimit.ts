@@ -60,13 +60,27 @@ export function startCleanupInterval() {
 	return cleanupInterval;
 }
 
+interface RateLimitContextUser {
+	sub: string;
+	localUserId: number;
+}
+
+interface RateLimitContext {
+	user?: RateLimitContextUser | null;
+}
+
+interface RateLimitMiddlewareParams {
+	ctx: RateLimitContext;
+	next: () => unknown;
+}
+
 export function createRateLimitMiddleware() {
-	return ({ ctx, next }: any) => {
-		const key =
-			(ctx.user && (ctx.user.sub || String(ctx.user.localUserId ?? ""))) || "anon";
+	return ({ ctx, next }: RateLimitMiddlewareParams) => {
+		const key = (ctx.user && (ctx.user.sub || String(ctx.user.localUserId ?? ""))) || "anon";
 		if (!allowRequest(key)) {
 			throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
 		}
-		return next();
+		// biome-ignore lint/suspicious/noExplicitAny: tRPC middleware integration
+		return next() as any;
 	};
 }

@@ -1,5 +1,5 @@
-import argon2 from "argon2";
 import type { PrismaClient } from "@prisma/client";
+import argon2 from "argon2";
 import { injectable } from "tsyringe";
 import type { IDbInitializer } from "../../interfaces/IDbService.js";
 import { logger } from "../../modules/logger/core/logger.js";

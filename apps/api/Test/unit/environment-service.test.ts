@@ -1,17 +1,17 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { EnvironmentService } from "../src/services/EnvironmentService.js";
 
 describe("EnvironmentService", () => {
 	const service = new EnvironmentService(process.cwd());
 
 	beforeEach(() => {
-		delete process.env.OIDC_ISSUER;
-		delete process.env.OIDC_CLIENT_ID;
-		delete process.env.OIDC_CLIENT_SECRET;
-		delete process.env.OIDC_REDIRECT_URI;
-		delete process.env.ALLOWED_WS_ORIGIN;
-		delete process.env.ALLOWED_HTTP_ORIGIN;
-		delete process.env.DATABASE_URL;
+		process.env.OIDC_ISSUER = undefined;
+		process.env.OIDC_CLIENT_ID = undefined;
+		process.env.OIDC_CLIENT_SECRET = undefined;
+		process.env.OIDC_REDIRECT_URI = undefined;
+		process.env.ALLOWED_WS_ORIGIN = undefined;
+		process.env.ALLOWED_HTTP_ORIGIN = undefined;
+		process.env.DATABASE_URL = undefined;
 		process.env.NODE_ENV = "test";
 	});
 
@@ -25,7 +25,9 @@ describe("EnvironmentService", () => {
 	};
 
 	it("throws when required OIDC variables are missing", () => {
-		expect(() => service.validateEnvironment()).toThrow("OIDC_ISSUER must be set. See .env.example");
+		expect(() => service.validateEnvironment()).toThrow(
+			"OIDC_ISSUER must be set. See .env.example"
+		);
 	});
 
 	it("allows configuration when all required variables are set", () => {
@@ -60,7 +62,7 @@ describe("EnvironmentService", () => {
 	});
 
 	it("returns default port when PORT env is unset", () => {
-		delete process.env.PORT;
+		process.env.PORT = undefined;
 		expect(service.getPort()).toBe(3001);
 	});
 

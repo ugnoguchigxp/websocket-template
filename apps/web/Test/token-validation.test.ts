@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { createExpiredToken, createMockToken, createTokenWithoutAudience } from "./test-utils"
 import { clearStoredToken, getStoredToken, storeToken } from "../src/lib/tokenStorage"
+import { createExpiredToken, createMockToken, createTokenWithoutAudience } from "./test-utils"
 describe("Token Validation", () => {
 	beforeEach(() => {
 		sessionStorage.clear()

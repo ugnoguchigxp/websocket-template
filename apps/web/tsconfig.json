@@ -5,6 +5,9 @@
     "noEmit": true,
     "baseUrl": ".",
     "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noImplicitAny": false,
     "paths": {
       "@/*": ["src/*"],
       "@logger": ["src/modules/logger"],

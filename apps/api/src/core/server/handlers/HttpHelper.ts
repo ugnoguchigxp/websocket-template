@@ -8,7 +8,8 @@ export class HttpHelper {
 	private readonly maxBodyBytes: number;
 
 	constructor(maxBodyBytes?: number) {
-		this.maxBodyBytes = maxBodyBytes || Number.parseInt(process.env.OIDC_MAX_AUTH_BODY_BYTES || "1048576", 10);
+		this.maxBodyBytes =
+			maxBodyBytes || Number.parseInt(process.env.OIDC_MAX_AUTH_BODY_BYTES || "1048576", 10);
 	}
 
 	/**

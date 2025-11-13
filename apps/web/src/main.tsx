@@ -1,18 +1,25 @@
+import { createContextLogger } from "@logger"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { TRPCClientError } from "@trpc/client"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { BrowserRouter } from "react-router-dom"
-import { createContextLogger } from "@logger"
 import { App } from "./App"
-import { createTrpcClientWithToken, type TrpcClientConnection } from "./client"
+import { type TrpcClientConnection, createTrpcClientWithToken } from "./client"
+import ToastArea from "./components/legacy-ui/ToastArea"
 import { NotificationContainer } from "./components/notifications/NotificationContainer"
-import { AuthProvider } from "./contexts/AuthContext"
-import { NotificationProvider } from "./contexts/NotificationContext"
 import { oidcConfig } from "./config/oidc"
-import { logoutFromServer, refreshAccessToken, loginWithPassword, exchangeAuthorizationCode } from "./lib/authClient"
+import { AuthProvider } from "./contexts/AuthContext"
+import { MessageProvider } from "./contexts/MessageContext"
+import { NotificationProvider } from "./contexts/NotificationContext"
+import {
+	exchangeAuthorizationCode,
+	loginWithPassword,
+	logoutFromServer,
+	refreshAccessToken,
+} from "./lib/authClient"
 import { generatePkcePair, generateState } from "./lib/pkce"
-import { clearStoredToken, getStoredToken, storeToken, type StoredToken } from "./lib/tokenStorage"
+import { type StoredToken, clearStoredToken, getStoredToken, storeToken } from "./lib/tokenStorage"
 import "./i18n"
 import "./index.css"
 import { api } from "./trpc"
@@ -135,7 +142,7 @@ function AppRoot() {
 			}, delay)
 			log.debug("Scheduled token refresh", { delayMs: delay })
 		},
-		[clearRefreshTimer, performRefresh],
+		[clearRefreshTimer, performRefresh]
 	)
 
 	const isInitialConnectionRef = React.useRef(true)
@@ -304,7 +311,9 @@ function AppRoot() {
 						"retrying in",
 						"network error",
 					]
-					const isConnectionIssue = connectionIndicators.some(indicator => message.includes(indicator))
+					const isConnectionIssue = connectionIndicators.some(indicator =>
+						message.includes(indicator)
+					)
 					if (!isConnectionIssue) {
 						log.warn("auth.me responded with application error; clearing session", {
 							message: error.message,
@@ -400,47 +409,58 @@ function AppRoot() {
 
 	log.info("AppRoot initialized", { hasToken: !!tokenState, hasSsoConfig })
 
-	if (!connection) {
+	if (!connection && tokenState) {
 		return (
-			<BrowserRouter>
-				<NotificationProvider>
-					<Login 
-						onLocalLogin={handleLocalLogin}
-						onSsoLogin={startOidcLogin}
-						isProcessing={isAuthorizing} 
-						errorMessage={authError}
-						hasSsoConfig={hasSsoConfig}
-					/>
-					<NotificationContainer />
-				</NotificationProvider>
-			</BrowserRouter>
+			<MessageProvider>
+				<BrowserRouter>
+					<div className="flex items-center justify-center min-h-screen">
+						<div className="text-center">
+							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
+							<p>Connecting...</p>
+						</div>
+					</div>
+					<ToastArea />
+				</BrowserRouter>
+			</MessageProvider>
 		)
 	}
 
 	if (!connection) {
 		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-					<p>Connecting...</p>
-				</div>
-			</div>
+			<MessageProvider>
+				<BrowserRouter>
+					<NotificationProvider>
+						<Login
+							onLocalLogin={handleLocalLogin}
+							onSsoLogin={startOidcLogin}
+							isProcessing={isAuthorizing}
+							errorMessage={authError}
+							hasSsoConfig={hasSsoConfig}
+						/>
+						<NotificationContainer />
+					</NotificationProvider>
+					<ToastArea />
+				</BrowserRouter>
+			</MessageProvider>
 		)
 	}
 
 	return (
-		<BrowserRouter>
-			<AuthProvider onLogout={handleLogout} user={user}>
-				<NotificationProvider>
-					<QueryClientProvider client={queryClient}>
-						<api.Provider client={connection.client} queryClient={queryClient}>
-							<App />
-						</api.Provider>
-					</QueryClientProvider>
-					<NotificationContainer />
-				</NotificationProvider>
-			</AuthProvider>
-		</BrowserRouter>
+		<MessageProvider>
+			<BrowserRouter>
+				<AuthProvider onLogout={handleLogout} user={user}>
+					<NotificationProvider>
+						<QueryClientProvider client={queryClient}>
+							<api.Provider client={connection.client} queryClient={queryClient}>
+								<App />
+							</api.Provider>
+						</QueryClientProvider>
+						<NotificationContainer />
+					</NotificationProvider>
+				</AuthProvider>
+				<ToastArea />
+			</BrowserRouter>
+		</MessageProvider>
 	)
 }
 

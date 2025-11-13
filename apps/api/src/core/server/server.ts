@@ -1,20 +1,25 @@
 import "reflect-metadata";
+import { randomBytes, randomUUID } from "crypto";
 import * as fs from "fs";
 import type { IncomingMessage, ServerResponse } from "http";
 import * as http from "http";
 import * as https from "https";
-import { randomBytes, randomUUID } from "crypto";
 import { URL } from "url";
-import argon2 from "argon2";
 import type { Prisma, PrismaClient, RefreshToken, User } from "@prisma/client";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
+import argon2 from "argon2";
 import { inject, injectable } from "tsyringe";
+import type { WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import { z } from "zod";
-import { type WebSocket, WebSocketServer } from "ws";
-import type { AccessTokenClaims, IdTokenClaims } from "../auth/index.js";
-import { JwtService } from "../auth/index.js";
+import { ChatDispatcher } from "../../modules/chat/dispatcher.js";
 import { logger } from "../../modules/logger/core/logger.js";
 import type { Context, ContextUser } from "../../routers/index.js";
+import { monitoring } from "../../utils/monitoring.js";
+import { RateLimitPresets } from "../../utils/rateLimiter.js";
+import { sanitizeText } from "../../utils/sanitize.js";
+import type { AccessTokenClaims, IdTokenClaims } from "../auth/index.js";
+import { JwtService } from "../auth/index.js";
 
 // Extend WebSocket type to include isAlive property
 interface ExtendedWebSocket extends WebSocket {
@@ -22,8 +27,8 @@ interface ExtendedWebSocket extends WebSocket {
 }
 
 // WebSocket configuration constants
-const IDLE_TIMEOUT_AUTHENTICATED_MS = 30 * 60 * 1000; // 30 minutes
-const IDLE_TIMEOUT_UNAUTHENTICATED_MS = 5 * 60 * 1000; // 5 minutes
+const _IDLE_TIMEOUT_AUTHENTICATED_MS = 30 * 60 * 1000; // 30 minutes
+const _IDLE_TIMEOUT_UNAUTHENTICATED_MS = 5 * 60 * 1000; // 5 minutes
 const HEARTBEAT_INTERVAL_MS = 30_000; // 30 seconds
 
 @injectable()
@@ -33,23 +38,31 @@ export class ServerApp {
 	private readonly refreshCookieDomain = process.env.OIDC_REFRESH_COOKIE_DOMAIN;
 	private readonly refreshCookieSecure: boolean;
 	private readonly refreshCookieSameSite: "Strict" | "Lax" | "None";
+	private chatDispatcher: ChatDispatcher;
 	private readonly maxAuthBodyBytes = Number.parseInt(
 		process.env.OIDC_MAX_AUTH_BODY_BYTES || "1048576",
 		10
 	);
 
 	constructor(
-		@inject("Prisma") private readonly prisma: PrismaClient,
-		@inject(JwtService) private readonly jwtService: JwtService
+		@inject("PrismaClient") private prisma: PrismaClient,
+		@inject(JwtService) private jwtService: JwtService
 	) {
+		this.chatDispatcher = new ChatDispatcher();
+
+		// Register services for monitoring
+		monitoring.registerService("websocket_server");
+		monitoring.registerService("chat_dispatcher");
+		monitoring.registerService("trpc_handler");
+
+		logger.info("[ServerApp] Monitoring initialized with services registered");
+
 		this.refreshCookieSecure =
 			process.env.OIDC_REFRESH_COOKIE_SECURE?.toLowerCase() !== "false"
 				? true
 				: process.env.NODE_ENV === "production";
 
-		this.refreshCookieSameSite = this.resolveSameSite(
-			process.env.OIDC_REFRESH_COOKIE_SAMESITE
-		);
+		this.refreshCookieSameSite = this.resolveSameSite(process.env.OIDC_REFRESH_COOKIE_SAMESITE);
 
 		if (this.refreshCookieSameSite === "None" && !this.refreshCookieSecure) {
 			logger.warn(
@@ -233,7 +246,7 @@ export class ServerApp {
 		}
 		try {
 			return JSON.parse(raw) as T;
-		} catch (error) {
+		} catch (_error) {
 			throw new Error("Invalid JSON payload");
 		}
 	}
@@ -370,10 +383,7 @@ export class ServerApp {
 		});
 	}
 
-	private extractRoles(
-		claims: AccessTokenClaims,
-		idTokenClaims?: IdTokenClaims | null
-	): string[] {
+	private extractRoles(claims: AccessTokenClaims, idTokenClaims?: IdTokenClaims | null): string[] {
 		const roles = new Set<string>();
 
 		const collect = (value: unknown) => {
@@ -565,7 +575,7 @@ export class ServerApp {
 		try {
 			// Check token type to determine authentication flow
 			const isLocalSession = session.tokenType === "local";
-			
+
 			if (isLocalSession) {
 				// Local authentication - issue new access token
 				const accessTokenClaims: AccessTokenClaims = {
@@ -614,10 +624,7 @@ export class ServerApp {
 				});
 
 				const email = this.extractEmail(tokens.accessTokenClaims, tokens.idTokenClaims);
-				const displayName = this.extractDisplayName(
-					tokens.accessTokenClaims,
-					tokens.idTokenClaims
-				);
+				const displayName = this.extractDisplayName(tokens.accessTokenClaims, tokens.idTokenClaims);
 				user = await this.updateUserProfile(user, email, displayName);
 
 				const contextUser = this.buildContextUser(
@@ -632,6 +639,9 @@ export class ServerApp {
 					accessToken: tokens.accessToken,
 					accessTokenExpiresAt: tokens.accessTokenExpiresAt.toISOString(),
 					scope: tokens.scope ?? null,
+					refreshSessionId: sessionId,
+					refreshToken: newRefreshToken,
+					refreshTokenExpiresAt: newExpiresAt.toISOString(),
 					user: {
 						id: user.id,
 						username: user.username,
@@ -678,7 +688,7 @@ export class ServerApp {
 				return;
 			}
 
-			const isValidPassword = await argon2.verify(user.passwordHash, input.password);
+			const isValidPassword = await argon2.verify(user.passwordHash || "", input.password);
 			if (!isValidPassword) {
 				logger.warn("Login failed: invalid password", {
 					username: input.username,
@@ -735,6 +745,9 @@ export class ServerApp {
 				accessToken,
 				accessTokenExpiresAt: accessTokenExpiresAt.toISOString(),
 				scope: accessTokenClaims.scope,
+				refreshSessionId: sessionId,
+				refreshToken: refreshTokenValue,
+				refreshTokenExpiresAt: refreshTokenExpiresAt.toISOString(),
 				user: {
 					id: user.id,
 					username: user.username,
@@ -781,6 +794,45 @@ export class ServerApp {
 		res.end();
 	}
 
+	private async handleAuthSessionEstablish(req: IncomingMessage, res: ServerResponse) {
+		try {
+			const body = await this.readJsonBody<unknown>(req);
+			const schema = z.object({
+				sessionId: z.string().min(1),
+				refreshToken: z.string().min(1),
+			});
+			const input = schema.parse(body);
+
+			const session = await this.findRefreshSession(input.sessionId);
+			if (!session || session.token !== input.refreshToken) {
+				logger.warn("Refresh session establishment failed: session mismatch", {
+					sessionId: sanitizeText(input.sessionId),
+				});
+				this.sendJson(res, 401, { error: "Invalid session" });
+				return;
+			}
+
+			if (session.expiresAt.getTime() <= Date.now()) {
+				await this.deleteRefreshSession(input.sessionId);
+				this.sendJson(res, 401, { error: "Session expired" });
+				return;
+			}
+
+			this.setRefreshCookie(res, input.sessionId, session.expiresAt);
+			res.statusCode = 204;
+			res.end();
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				this.sendJson(res, 400, { error: "Invalid request payload", details: error.errors });
+				return;
+			}
+			logger.error("Failed to establish refresh session cookie", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			this.sendJson(res, 500, { error: "Failed to establish session" });
+		}
+	}
+
 	private async handleHttpRequest(
 		req: IncomingMessage,
 		res: ServerResponse,
@@ -814,23 +866,15 @@ export class ServerApp {
 				return;
 			}
 
-			if (method === "POST" && url.pathname === "/auth/login") {
-				await this.handleAuthLogin(req, res);
+			// Allow only the refresh-session cookie establishment endpoint
+			if (method === "POST" && url.pathname === "/auth/session") {
+				await this.handleAuthSessionEstablish(req, res);
 				return;
 			}
 
-			if (method === "POST" && url.pathname === "/auth/exchange") {
-				await this.handleAuthExchange(req, res);
-				return;
-			}
-
-			if (method === "POST" && url.pathname === "/auth/refresh") {
-				await this.handleAuthRefresh(req, res);
-				return;
-			}
-
-			if (method === "POST" && url.pathname === "/auth/logout") {
-				await this.handleAuthLogout(req, res);
+			// WS+tRPC only: disable other REST auth endpoints
+			if (url.pathname.startsWith("/auth/") && url.pathname !== "/auth/session") {
+				this.sendJson(res, 404, { error: "REST auth disabled. Use tRPC over WebSocket." });
 				return;
 			}
 
@@ -892,18 +936,21 @@ export class ServerApp {
 			maxPayload: 1_000_000, // 1MB max message size
 			perMessageDeflate: false, // Disable compression to prevent DoS
 			clientTracking: true,
-			verifyClient: (info) => {
+			verifyClient: (info: { origin?: string; req: IncomingMessage }) => {
 				const origin = info.origin || info.req.headers.origin;
 				logger.debug("WebSocket connection attempt", { origin, allowedOrigin: allowedWsOrigin });
-				
+
 				if (!origin) {
 					logger.warn("WebSocket connection rejected: no origin header");
 					return false;
 				}
-				
+
 				const allowed = origin === allowedWsOrigin || allowedWsOrigin === "*";
 				if (!allowed) {
-					logger.warn("WebSocket connection rejected: origin not allowed", { origin, allowedOrigin: allowedWsOrigin });
+					logger.warn("WebSocket connection rejected: origin not allowed", {
+						origin,
+						allowedOrigin: allowedWsOrigin,
+					});
 				}
 				return allowed;
 			},
@@ -915,11 +962,17 @@ export class ServerApp {
 		});
 
 		wss.on("connection", (socket, req) => {
-			logger.debug("WebSocket connection established", { 
+			const ws = socket as ExtendedWebSocket;
+			// Mark connection alive at start and refresh on pong
+			ws.isAlive = true;
+			ws.on("pong", () => {
+				ws.isAlive = true;
+			});
+			logger.debug("WebSocket connection established", {
 				url: req.url,
 				origin: req.headers.origin,
 			});
-			
+
 			// Limit total connections
 			if (wss.clients.size > MAX_CONNECTIONS) {
 				logger.warn("Server at capacity, closing connection");
@@ -933,20 +986,16 @@ export class ServerApp {
 				return;
 			}
 
-			socket.on("message", (data) => {
-				logger.debug("WebSocket message received", { 
-					dataLength: data.length,
-					dataPreview: data.toString().substring(0, 100)
-				});
-			});
+			// Check if this is a chat connection
+			const isChatConnection = req.url?.includes("/chat") || false;
 
-			socket.on("error", (error) => {
-				logger.error("WebSocket error", { error: error.message });
-			});
-
-			socket.on("close", (code, reason) => {
-				logger.debug("WebSocket connection closed", { code, reason: reason.toString() });
-			});
+			if (isChatConnection) {
+				// Handle chat connection with dispatcher
+				this.handleChatConnection(socket, req);
+			} else {
+				// Handle tRPC connection
+				this.handleTrpcConnection(socket, req);
+			}
 		});
 
 		// Periodic ping to detect broken connections
@@ -1035,23 +1084,164 @@ export class ServerApp {
 		const token = this.extractToken(req);
 		if (!token) {
 			logger.debug("No access token provided");
-			return { user: null, prisma: this.prisma, accessToken: null };
+			return { user: null, prisma: this.prisma, accessToken: null, jwtService: this.jwtService };
 		}
 
 		const claims = await this.jwtService.verifyAccessToken(token);
 		if (!claims) {
-			return { user: null, prisma: this.prisma, accessToken: null };
+			return { user: null, prisma: this.prisma, accessToken: null, jwtService: this.jwtService };
 		}
 
 		try {
 			const user = await this.provisionUser(claims);
 			const contextUser = this.buildContextUser(user, claims);
-			return { user: contextUser, prisma: this.prisma, accessToken: token };
+			return {
+				user: contextUser,
+				prisma: this.prisma,
+				accessToken: token,
+				jwtService: this.jwtService,
+			};
 		} catch (error) {
 			logger.error("Failed to prepare context user from access token", {
 				error: error instanceof Error ? error.message : String(error),
 			});
-			return { user: null, prisma: this.prisma, accessToken: null };
+			return { user: null, prisma: this.prisma, accessToken: null, jwtService: this.jwtService };
 		}
+	}
+
+	/**
+	 * Handle chat WebSocket connections
+	 */
+	private handleChatConnection(socket: WebSocket, req: any): void {
+		logger.info("[Chat] Handling chat connection", { url: req.url });
+
+		// Extract metadata from request
+		const metadata = {
+			ipAddress: this.extractClientIP(req),
+			userAgent: req.headers["user-agent"],
+		};
+
+		// Extract token from query or subprotocol
+		const token = this.extractTokenFromRequest(req);
+
+		if (!token) {
+			logger.warn("[Chat] Chat connection rejected: no token", { metadata });
+			socket.close(4001, "Authentication required");
+			return;
+		}
+
+		// Rate limit WebSocket connections
+		const rateLimitResult = RateLimitPresets.websocketConnections.checkLimit(
+			metadata.ipAddress || "unknown"
+		);
+		if (!rateLimitResult.allowed) {
+			logger.warn("[Chat] Chat connection rejected: rate limit exceeded", { metadata });
+			socket.close(429, "Too many connections");
+			return;
+		}
+
+		// Verify token and get user
+		this.jwtService
+			.verifyAccessToken(token)
+			.then(async (claims) => {
+				if (!claims) {
+					throw new Error("Invalid claims");
+				}
+				const user = await this.provisionUser(claims);
+				const contextUser = this.buildContextUser(user, claims);
+
+				// Register with enhanced metadata
+				const sessionId = this.chatDispatcher.registerConnection(socket, contextUser, metadata);
+
+				logger.info(`[Chat] Chat session established: ${sessionId} for user ${contextUser.sub}`, {
+					sessionId,
+					userId: contextUser.sub,
+					ipAddress: metadata.ipAddress,
+					userAgent: metadata.userAgent,
+				});
+
+				// Record monitoring metrics
+				monitoring.recordRequest("chat_connection", 0);
+			})
+			.catch((error) => {
+				logger.error("[Chat] Chat connection authentication failed:", error);
+				socket.close(4001, "Authentication failed");
+
+				// Record error metrics
+				monitoring.recordRequest("chat_connection", 0, error);
+			});
+	}
+
+	/**
+	 * Handle tRPC WebSocket connections
+	 */
+	private handleTrpcConnection(socket: WebSocket, _req: any): void {
+		socket.on("message", (data) => {
+			const dataLength = Buffer.isBuffer(data)
+				? data.length
+				: Array.isArray(data)
+					? data.length
+					: data instanceof ArrayBuffer
+						? data.byteLength
+						: 0;
+
+			logger.debug("WebSocket message received", {
+				dataLength,
+				dataPreview: data.toString().substring(0, 100),
+			});
+		});
+
+		socket.on("error", (error) => {
+			logger.error("WebSocket error", { error: error.message });
+		});
+
+		socket.on("close", (code, reason) => {
+			logger.debug("WebSocket connection closed", { code, reason: reason.toString() });
+		});
+	}
+
+	/**
+	 * Extract client IP address from request
+	 */
+	private extractClientIP(req: any): string {
+		// Try various headers for client IP
+		const forwardedFor = req.headers["x-forwarded-for"];
+		if (forwardedFor) {
+			return forwardedFor.split(",")[0].trim();
+		}
+
+		const realIP = req.headers["x-real-ip"];
+		if (realIP) {
+			return realIP;
+		}
+
+		const cfConnectingIP = req.headers["cf-connecting-ip"];
+		if (cfConnectingIP) {
+			return cfConnectingIP;
+		}
+
+		// Fallback to connection remote address
+		return req.socket?.remoteAddress || "unknown";
+	}
+
+	/**
+	 * Extract token from WebSocket request
+	 */
+	private extractTokenFromRequest(req: any): string | null {
+		// Try query parameter first
+		const url = new URL(req.url || "", "http://localhost");
+		const token = url.searchParams.get("token");
+		if (token) return token;
+
+		// Try subprotocol
+		const protocols = req.headers["sec-websocket-protocol"];
+		if (protocols && typeof protocols === "string") {
+			const tokenProtocol = protocols.split(",").find((p) => p.trim().startsWith("Bearer."));
+			if (tokenProtocol) {
+				return tokenProtocol.trim().substring(7); // Remove 'Bearer.' prefix
+			}
+		}
+
+		return null;
 	}
 }

@@ -1,16 +1,16 @@
 import {
+	type ColumnDef,
+	type ColumnFiltersState,
+	type SortingState,
 	flexRender,
 	getCoreRowModel,
+	getFilteredRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
-	getFilteredRowModel,
 	useReactTable,
-	type ColumnDef,
-	type SortingState,
-	type ColumnFiltersState,
 } from "@tanstack/react-table"
-import { useTranslation } from "react-i18next"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "./Button"
 
 interface TableProps<TData> {
@@ -29,9 +29,9 @@ interface TableProps<TData> {
 	onFiltersChange?: (filters: ColumnFiltersState) => void
 }
 
-export function Table<TData>({ 
-	data, 
-	columns, 
+export function Table<TData>({
+	data,
+	columns,
 	pageSize = 10,
 	loading = false,
 	emptyMessage,
@@ -49,7 +49,7 @@ export function Table<TData>({
 	const handleSortingChange = (updater: any) => {
 		setSorting(updater)
 		if (onSortingChange) {
-			const newSorting = typeof updater === 'function' ? updater(sorting) : updater
+			const newSorting = typeof updater === "function" ? updater(sorting) : updater
 			onSortingChange(newSorting)
 		}
 	}
@@ -57,7 +57,7 @@ export function Table<TData>({
 	const handleFiltersChange = (updater: any) => {
 		setColumnFilters(updater)
 		if (onFiltersChange) {
-			const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater
+			const newFilters = typeof updater === "function" ? updater(columnFilters) : updater
 			onFiltersChange(newFilters)
 		}
 	}
@@ -87,18 +87,16 @@ export function Table<TData>({
 			<div className="overflow-x-auto rounded-md border bg-white">
 				<table className="w-full caption-bottom text-sm">
 					<thead className="border-b bg-gray-50">
-						{table.getHeaderGroups().map((headerGroup) => (
+						{table.getHeaderGroups().map(headerGroup => (
 							<tr key={headerGroup.id}>
-								{headerGroup.headers.map((header) => (
+								{headerGroup.headers.map(header => (
 									<th
 										key={header.id}
 										className="h-12 px-4 text-left align-middle font-medium text-muted-foreground"
 									>
 										{header.isPlaceholder ? null : (
 											<div
-												className={
-													header.column.getCanSort() ? "cursor-pointer select-none" : ""
-												}
+												className={header.column.getCanSort() ? "cursor-pointer select-none" : ""}
 												onClick={header.column.getToggleSortingHandler()}
 											>
 												{flexRender(header.column.columnDef.header, header.getContext())}
@@ -118,17 +116,17 @@ export function Table<TData>({
 							<tr>
 								<td colSpan={columns.length} className="h-24 text-center">
 									<div className="flex items-center justify-center">
-										<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+										<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
 									</div>
 								</td>
 							</tr>
 						) : table.getRowModel().rows?.length ? (
-							table.getRowModel().rows.map((row) => (
+							table.getRowModel().rows.map(row => (
 								<tr
 									key={row.id}
 									className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
 								>
-									{row.getVisibleCells().map((cell) => (
+									{row.getVisibleCells().map(cell => (
 										<td key={cell.id} className="p-4 align-middle">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</td>
@@ -148,7 +146,13 @@ export function Table<TData>({
 			{enablePagination && (
 				<div className="flex items-center justify-between">
 					<div className="text-sm text-muted-foreground">
-						{t("showing")} {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} - {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} {t("of")} {table.getFilteredRowModel().rows.length}
+						{t("showing")}{" "}
+						{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} -{" "}
+						{Math.min(
+							(table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+							table.getFilteredRowModel().rows.length
+						)}{" "}
+						{t("of")} {table.getFilteredRowModel().rows.length}
 					</div>
 					<div className="flex items-center space-x-2">
 						<Button

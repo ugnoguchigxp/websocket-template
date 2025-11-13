@@ -66,9 +66,7 @@ const TETROMINOS = [
 export const TetrisGame = () => {
 	const { t } = useTranslation()
 	const [board, setBoard] = useState<string[][]>(() =>
-		Array(BOARD_HEIGHT)
-			.fill(null)
-			.map(() => Array(BOARD_WIDTH).fill(""))
+		new Array(BOARD_HEIGHT).fill(null).map(() => new Array(BOARD_WIDTH).fill(""))
 	)
 	const [currentPiece, setCurrentPiece] = useState<Piece | null>(null)
 	const [score, setScore] = useState(0)
@@ -150,7 +148,7 @@ export const TetrisGame = () => {
 
 				// Add empty rows at the top
 				while (filteredBoard.length < BOARD_HEIGHT) {
-					filteredBoard.unshift(Array(BOARD_WIDTH).fill(""))
+					filteredBoard.unshift(new Array(BOARD_WIDTH).fill(""))
 				}
 
 				setBoard(filteredBoard)
@@ -204,11 +202,7 @@ export const TetrisGame = () => {
 	}, [currentPiece, board, gameOver, isPaused, isValidMove, movePiece])
 
 	const startGame = useCallback(() => {
-		setBoard(
-			Array(BOARD_HEIGHT)
-				.fill(null)
-				.map(() => Array(BOARD_WIDTH).fill(""))
-		)
+		setBoard(new Array(BOARD_HEIGHT).fill(null).map(() => new Array(BOARD_WIDTH).fill("")))
 		setScore(0)
 		setLines(0)
 		setLevel(1)

@@ -11,22 +11,29 @@ export class CookieManager {
 	private readonly secure: boolean;
 	private readonly sameSite: "Strict" | "Lax" | "None";
 
-	constructor(options: {
-		cookieName?: string;
-		cookiePath?: string;
-		cookieDomain?: string;
-		secure?: boolean;
-		sameSite?: string;
-	} = {}) {
-		this.cookieName = options.cookieName || process.env.OIDC_REFRESH_COOKIE_NAME || "refresh_session";
+	constructor(
+		options: {
+			cookieName?: string;
+			cookiePath?: string;
+			cookieDomain?: string;
+			secure?: boolean;
+			sameSite?: string;
+		} = {}
+	) {
+		this.cookieName =
+			options.cookieName || process.env.OIDC_REFRESH_COOKIE_NAME || "refresh_session";
 		this.cookiePath = options.cookiePath || process.env.OIDC_REFRESH_COOKIE_PATH || "/";
 		this.cookieDomain = options.cookieDomain || process.env.OIDC_REFRESH_COOKIE_DOMAIN;
-		
-		this.secure = options.secure !== undefined 
-			? options.secure 
-			: (process.env.OIDC_REFRESH_COOKIE_SECURE?.toLowerCase() !== "false" || process.env.NODE_ENV === "production");
-		
-		this.sameSite = this.resolveSameSite(options.sameSite || process.env.OIDC_REFRESH_COOKIE_SAMESITE);
+
+		this.secure =
+			options.secure !== undefined
+				? options.secure
+				: process.env.OIDC_REFRESH_COOKIE_SECURE?.toLowerCase() !== "false" ||
+					process.env.NODE_ENV === "production";
+
+		this.sameSite = this.resolveSameSite(
+			options.sameSite || process.env.OIDC_REFRESH_COOKIE_SAMESITE
+		);
 
 		if (this.sameSite === "None" && !this.secure) {
 			this.secure = true;

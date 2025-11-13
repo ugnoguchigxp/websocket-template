@@ -22,7 +22,7 @@ function randomString(length: number): string {
 	const crypto = ensureCrypto()
 	const array = new Uint8Array(length)
 	crypto.getRandomValues(array)
-	return Array.from(array, (byte) => ("0" + byte.toString(16)).slice(-2)).join("")
+	return Array.from(array, byte => `0${byte.toString(16)}`.slice(-2)).join("")
 }
 
 export async function generatePkcePair(): Promise<{ codeVerifier: string; codeChallenge: string }> {

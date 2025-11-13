@@ -13,6 +13,24 @@ export const getMenuData = (isAdmin: boolean) => {
 			path: "/bbs",
 		},
 		{
+			id: "mindmap",
+			label: "MindMap",
+			labelKey: "mindmap",
+			path: "/mindmap",
+		},
+		{
+			id: "socket-chat",
+			label: "Socket Chat",
+			labelKey: "socket_chat",
+			path: "/socket-chat",
+		},
+		{
+			id: "markdown-editor",
+			label: "Markdown Editor",
+			labelKey: "markdown_editor",
+			path: "/markdown-editor",
+		},
+		{
 			id: "components-demo",
 			label: "Components Demo",
 			labelKey: "components_demo",

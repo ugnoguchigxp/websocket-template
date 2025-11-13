@@ -75,7 +75,10 @@ export function validateToken(token: string, overrideExpiresAt?: number): Stored
 	const effectiveExpiresAt = overrideExpiresAt ?? tokenExpMs
 
 	if (typeof effectiveExpiresAt !== "number") {
-		log.warn("Token missing expiration data", { hasOverride: !!overrideExpiresAt, hasExp: typeof payload.exp })
+		log.warn("Token missing expiration data", {
+			hasOverride: !!overrideExpiresAt,
+			hasExp: typeof payload.exp,
+		})
 		return null
 	}
 
@@ -90,10 +93,7 @@ export function validateToken(token: string, overrideExpiresAt?: number): Stored
 
 	const payloadWithExp = {
 		...payload,
-		exp:
-			typeof payload.exp === "number"
-				? payload.exp
-				: Math.floor(effectiveExpiresAt / 1000),
+		exp: typeof payload.exp === "number" ? payload.exp : Math.floor(effectiveExpiresAt / 1000),
 	} as TokenPayload & { exp: number }
 
 	return {
@@ -139,10 +139,7 @@ export function getStoredToken(): StoredToken | null {
 	}
 }
 
-export function storeToken(
-	token: string,
-	expiresAt?: string | number | Date,
-): StoredToken | null {
+export function storeToken(token: string, expiresAt?: string | number | Date): StoredToken | null {
 	const storage = getSessionStorage()
 	if (!storage) {
 		return null

@@ -5,8 +5,10 @@ import { config } from "dotenv";
 import { container } from "tsyringe";
 import { JwtService } from "./core/auth/index.js";
 import { DbInitializer, prisma } from "./core/database/index.js";
-import { logger } from "./modules/logger/core/logger.js";
 import { ServerApp } from "./core/server/index.js";
+import { logger } from "./modules/logger/core/logger.js";
+import "./modules/mindmap/di.js";
+import "./modules/ai/di.js";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
@@ -24,7 +26,7 @@ if (!hasOidcConfig) {
 if (!process.env.JWT_SECRET) {
 	throw new Error(
 		"JWT_SECRET environment variable must be set. " +
-		"Generate a secure random string (minimum 32 characters)."
+			"Generate a secure random string (minimum 32 characters)."
 	);
 }
 

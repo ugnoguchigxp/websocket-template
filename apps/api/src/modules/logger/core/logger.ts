@@ -136,22 +136,30 @@ class BackendLogger implements ILogger {
 		}
 	}
 
-	error(message: string, error?: Error | Record<string, unknown>): void {
+	error(message: string, meta?: unknown): void {
 		if (!this.shouldLog(LogLevel.ERROR)) return;
 
 		const formattedMessage = formatMessage("error", message);
-		if (error !== undefined) {
-			if (error instanceof Error) {
-				// eslint-disable-next-line no-console
-				console.error(formattedMessage, "\n", error.stack || error.message);
-			} else {
-				// eslint-disable-next-line no-console
-				console.error(formattedMessage, "\n", safeStringify(error));
-			}
-		} else {
+		if (meta === undefined) {
 			// eslint-disable-next-line no-console
 			console.error(formattedMessage);
+			return;
 		}
+
+		if (meta instanceof Error) {
+			// eslint-disable-next-line no-console
+			console.error(formattedMessage, "\n", meta.stack || meta.message);
+			return;
+		}
+
+		if (typeof meta === "object" && meta !== null) {
+			// eslint-disable-next-line no-console
+			console.error(formattedMessage, "\n", safeStringify(meta));
+			return;
+		}
+
+		// eslint-disable-next-line no-console
+		console.error(formattedMessage, meta);
 	}
 }
 
